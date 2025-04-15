@@ -1,4 +1,4 @@
-package net.gask13.oghmai.ui.net.gask13.oghmai.ui
+package net.gask13.oghmai.ui
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity

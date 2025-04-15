@@ -1,4 +1,5 @@
 import android.content.Context
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -10,15 +11,24 @@ import kotlinx.coroutines.launch
 import net.gask13.oghmai.model.DescriptionRequest
 import net.gask13.oghmai.model.WordResult
 import net.gask13.oghmai.network.RetrofitInstance
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.remember
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.ImeAction
+import kotlinx.coroutines.delay
 
 @Composable
 fun DescribeWordScreen(navController: NavController) {
     var inputText by remember { mutableStateOf("") }
     var result by remember { mutableStateOf<WordResult?>(null) }
     val coroutineScope = rememberCoroutineScope()
+    var isGuessing by remember { mutableStateOf(false) }
+    var isSaving by remember { mutableStateOf(false) }
+    var showSnackbar by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
+    var lastWord by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -33,28 +43,52 @@ fun DescribeWordScreen(navController: NavController) {
             value = inputText,
             onValueChange = { inputText = it },
             label = { Text("Enter a word or description") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(focusRequester),
+            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { focusRequester.freeFocus() }),
+            enabled = !isGuessing && !isSaving
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
         Button(
             onClick = {
+                isGuessing = true
                 coroutineScope.launch {
                     try {
                         val wordResult = RetrofitInstance.apiService.describeWord(DescriptionRequest(inputText))
                         result = wordResult
+                        lastWord = wordResult.word
+                        focusRequester.freeFocus() // Unfocus the text field
                     } catch (e: Exception) {
                         showResult(navController.context, "Error: ${e.message}")
+                    } finally {
+                        isGuessing = false
                     }
                 }
             },
-            modifier = Modifier.align(Alignment.End)
+            modifier = Modifier.align(Alignment.End),
+            enabled = inputText.isNotEmpty() && !isGuessing && !isSaving
         ) {
-            Text("Guess")
+            if (isGuessing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text("Guess")
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        if (isGuessing) {
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+        }
 
         result?.let {
             Text("Word: ${it.word}", style = MaterialTheme.typography.bodyLarge)
@@ -66,19 +100,48 @@ fun DescribeWordScreen(navController: NavController) {
             }
             Button(
                 onClick = {
+                    isSaving = true
                     coroutineScope.launch {
                         try {
                             RetrofitInstance.apiService.saveWord(it)
                             inputText = ""
                             result = null
+                            showSnackbar = true // Show success message
+                            Log.d("Snackbar", "Snackbar shown")
                         } catch (e: Exception) {
                             showResult(navController.context, "Error: ${e.message}")
+                        } finally {
+                            isSaving = false
                         }
                     }
                 },
-                modifier = Modifier.align(Alignment.End)
+                modifier = Modifier.align(Alignment.End),
+                enabled = !isGuessing && !isSaving
             ) {
-                Text("Save Word")
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Save Word")
+                }
+            }
+        }
+
+        if (showSnackbar) {
+            Snackbar(
+                modifier = Modifier.padding(8.dp),
+                containerColor = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Text("Word \"$lastWord\" saved.", color = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+
+            // Trigger the effect when `showSnackbar` changes
+            LaunchedEffect(showSnackbar) {
+                delay(2000) // Show the snackbar for 2 seconds
+                showSnackbar = false
+                Log.d("Snackbar", "Snackbar dismissed")
             }
         }
     }

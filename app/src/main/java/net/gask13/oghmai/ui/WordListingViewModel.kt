@@ -1,8 +1,9 @@
-package net.gask13.oghmai.ui.net.gask13.oghmai.ui
+package net.gask13.oghmai.ui
 
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,8 +33,13 @@ class WordListingViewModel(application: Application) : AndroidViewModel(applicat
 
     fun deleteWord(word: String) {
         viewModelScope.launch {
-            RetrofitInstance.apiService.deleteWord(word)
-            fetchWords() // Refresh the list
+            try {
+                RetrofitInstance.apiService.deleteWord(word)
+                // Update the list locally after successful deletion
+                _words.value = _words.value.filter { it != word }
+            } catch (e: Exception) {
+                Log.e("WordListingViewModel", "Error deleting word: ${e.message}")
+            }
         }
     }
 

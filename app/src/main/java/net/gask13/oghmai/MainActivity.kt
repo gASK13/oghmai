@@ -1,9 +1,14 @@
 package net.gask13.oghmai
 
 import DescribeWordScreen
+import android.util.Log
+import android.app.AlertDialog
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
@@ -15,13 +20,6 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import net.gask13.oghmai.network.RetrofitInstance
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
-import android.app.AlertDialog
-import android.content.Context
-import androidx.compose.ui.platform.LocalContext
 import net.gask13.oghmai.ui.WordListingScreen
 
 class MainActivity : ComponentActivity() {
@@ -29,6 +27,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val navController = rememberNavController()
+
             OghmAINavHost(navController)
         }
 
@@ -80,8 +79,7 @@ fun DisabledButton(text: String) {
 fun SettingsScreen(
     version: String = "v0.1-dev",
     user: String = "test",
-    language: String = "Italian",
-    onDeleteAll: () -> Unit
+    language: String = "Italian"
 ) {
     Column(modifier = Modifier.padding(16.dp)) {
         Text("Settings", style = MaterialTheme.typography.headlineSmall)
@@ -90,39 +88,52 @@ fun SettingsScreen(
         Text("Username: $user")
         Text("Language: $language")
         Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onDeleteAll) {
-            Text("Delete All Words")
-        }
     }
 }
 
 @Composable
 fun OghmAINavHost(navController: NavHostController) {
-    val context = LocalContext.current
-    NavHost(navController, startDestination = "main") {
-        composable("main") { MainMenuScreen { navController.navigate(it) } }
+    NavHost(navController, startDestination = "main",
+        enterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { fullWidth -> fullWidth }, // Starts off-screen to the right
+                animationSpec = tween(durationMillis = 500)
+            ) + fadeIn(animationSpec = tween(durationMillis = 300))
+        },
+        exitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { fullWidth -> -fullWidth }, // Moves off-screen to the left
+                animationSpec = tween(durationMillis = 500)
+            ) + fadeOut(animationSpec = tween(durationMillis = 300))
+        },
+        popEnterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { fullWidth -> -fullWidth }, // Reverse direction for back navigation
+                animationSpec = tween(durationMillis = 500)
+            ) + fadeIn(animationSpec = tween(durationMillis = 300))
+        },
+        popExitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { fullWidth -> fullWidth }, // Reverse exit direction
+                animationSpec = tween(durationMillis = 500)
+            ) + fadeOut(animationSpec = tween(durationMillis = 300))
+        }) {
+        composable("main") {
+            MainMenuScreen { destination ->
+                navController.navigate(destination) {
+                    // Clear the back stack when navigating to the main menu
+                    Log.d("Navigation", "Navigating to $destination")
+                    if (destination == "main") {
+                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                    }
+                }
+            }
+        }
         composable("describeWord") { DescribeWordScreen(navController) }
-        composable("listWords") { WordListingScreen() }
+        composable("listWords") { WordListingScreen(navController) }
         composable("settings") {
-            SettingsScreen(onDeleteAll = {
-            // Calling the purge-words endpoint
-//            RetrofitInstance.apiService.purgeWords()
-//                .enqueue(object : Callback<Void> {
-//                    override fun onResponse(call: Call<Void>, response: Response<Void>) {
-//                        if (response.isSuccessful) {
-//                            // Handle successful purging of words
-//                            showDeleteResult(context, "All words deleted")
-//                        } else {
-//                            // Handle failure
-//                            showDeleteResult( context,"Failed to delete words")
-//                        }
-//                    }
-//
-//                    override fun onFailure(call: Call<Void>, t: Throwable) {
-//                        showDeleteResult(context, "Error: ${t.message}")
-//                    }
-//                })
-        }) }
+            SettingsScreen()
+        }
     }
 }
 
