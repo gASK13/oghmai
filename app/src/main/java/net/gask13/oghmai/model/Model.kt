@@ -8,7 +8,8 @@ data class WordResult(
 )
 
 data class DescriptionRequest(
-    val description: String
+    val description: String,
+    val exclusions: List<String>? = null
 )
 
 data class WordList(

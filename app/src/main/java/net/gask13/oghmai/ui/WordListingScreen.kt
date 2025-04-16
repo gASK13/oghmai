@@ -1,11 +1,12 @@
 package net.gask13.oghmai.ui
 
 import android.util.Log
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -28,7 +29,7 @@ fun WordListingScreen(navController: NavHostController, viewModel: WordListingVi
     val isLoading by viewModel.isLoading.collectAsState()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
-    var recentlyDeletedWord by remember { mutableStateOf<String?>(null) }
+    var recentlyDeletedWord by remember { mutableStateOf<Pair<String, Int>?>(null) }
     var showSnackbar by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -43,13 +44,13 @@ fun WordListingScreen(navController: NavHostController, viewModel: WordListingVi
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(words, key = { it }) { word ->
+                itemsIndexed(words, key = { _, word -> word }) { index, word ->
                     val isActionTriggered = remember { mutableStateOf(false) }
                     val dismissState = rememberSwipeToDismissBoxState(
                         confirmValueChange = { dismissValue ->
                             if (dismissValue == SwipeToDismissBoxValue.StartToEnd && !isActionTriggered.value) {
                                 isActionTriggered.value = true
-                                recentlyDeletedWord = word
+                                recentlyDeletedWord = Pair(word, index)
                                 Log.d("SwipeToDismiss", "Word $word dismissed")
                                 viewModel.deleteWord(word)
                                 showSnackbar = true // Trigger snackbar
@@ -111,11 +112,14 @@ fun WordListingScreen(navController: NavHostController, viewModel: WordListingVi
         if (showSnackbar && recentlyDeletedWord != null) {
             LaunchedEffect(snackbarHostState, recentlyDeletedWord) {
                 val result = snackbarHostState.showSnackbar(
-                    message = "Deleted ${recentlyDeletedWord}",
-                    actionLabel = "Undo"
+                    message = "Deleted ${recentlyDeletedWord!!.first}",
+                    actionLabel = "Undo",
+                    duration = SnackbarDuration.Short,
+                    withDismissAction = true,
+
                 )
                 if (result == SnackbarResult.ActionPerformed) {
-                    viewModel.undoDeleteWord(recentlyDeletedWord!!)
+                    viewModel.undoDeleteWord(recentlyDeletedWord!!.first, recentlyDeletedWord!!.second)
                 }
                 snackbarHostState.currentSnackbarData?.dismiss() // Dismiss the snackbar
                 showSnackbar = false // Reset snackbar trigger

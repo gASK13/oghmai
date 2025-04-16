@@ -43,12 +43,14 @@ class WordListingViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    fun undoDeleteWord(word: String) {
+    fun undoDeleteWord(word: String, position: Int) {
         viewModelScope.launch {
             try {
                 RetrofitInstance.apiService.undoDeleteWord(word)
                 // Re-add the word to the list
-                _words.value = _words.value + word
+                val currentList = _words.value.toMutableList()
+                currentList.add(position, word)
+                _words.value = currentList
             } catch (e: Exception) {
                 Log.e("WordListingViewModel", "Error undoing delete for word: ${e.message}")
             }
