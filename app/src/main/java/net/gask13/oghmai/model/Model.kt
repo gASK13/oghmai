@@ -4,7 +4,8 @@ data class WordResult(
     val word: String,
     val translation: String,
     val definition: String,
-    val examples: List<String>
+    val examples: List<String>,
+    var saved: Boolean = false,
 )
 
 data class DescriptionRequest(

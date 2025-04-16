@@ -1,6 +1,4 @@
 import android.content.Context
-import androidx.compose.foundation.gestures.FlingBehavior
-import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -33,7 +31,6 @@ fun DescribeWordScreen(navController: NavController) {
     var results by rememberSaveable { mutableStateOf<List<WordResult>>(emptyList()) }
     var isGuessing by rememberSaveable { mutableStateOf(false) }
     var isSaving by rememberSaveable { mutableStateOf(false) }
-    var savedWords by rememberSaveable { mutableStateOf<Set<String>>(emptySet()) }
     val coroutineScope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
 
@@ -97,7 +94,6 @@ fun DescribeWordScreen(navController: NavController) {
                 onClick = {
                     inputText = ""
                     results = emptyList()
-                    savedWords = emptySet()
                 },
                 enabled = !isGuessing && !isSaving && results.isNotEmpty()
             ) {
@@ -154,7 +150,7 @@ fun DescribeWordScreen(navController: NavController) {
                                 coroutineScope.launch {
                                     try {
                                         RetrofitInstance.apiService.saveWord(result)
-                                        savedWords = savedWords + result.word
+                                        result.saved = true
                                     } catch (e: Exception) {
                                         showResult(navController.context, "Error: ${e.message}")
                                     } finally {
@@ -162,14 +158,14 @@ fun DescribeWordScreen(navController: NavController) {
                                     }
                                 }
                             },
-                            enabled = !isSaving && !savedWords.contains(result.word),
+                            enabled = !isSaving && !result.saved,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
-                                disabledContainerColor = if (savedWords.contains(result.word)) Color(0xFF4CAF50) else MaterialTheme.colorScheme.secondary,
+                                disabledContainerColor = if (result.saved) Color(0xFF4CAF50) else MaterialTheme.colorScheme.secondary,
                                 disabledContentColor = MaterialTheme.colorScheme.onPrimary
                             )
                         ) {
-                            if (savedWords.contains(result.word)) {
+                            if (result.saved) {
                                 Icon(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = "Saved",
