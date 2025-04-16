@@ -43,6 +43,18 @@ class WordListingViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    fun undoDeleteWord(word: String) {
+        viewModelScope.launch {
+            try {
+                RetrofitInstance.apiService.undoDeleteWord(word)
+                // Re-add the word to the list
+                _words.value = _words.value + word
+            } catch (e: Exception) {
+                Log.e("WordListingViewModel", "Error undoing delete for word: ${e.message}")
+            }
+        }
+    }
+
     fun onWordClick(context: Context, word: String) {
         val intent = Intent(context, WordDetailActivity::class.java).apply {
             putExtra("word", word)

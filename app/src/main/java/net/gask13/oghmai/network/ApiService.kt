@@ -3,11 +3,7 @@ package net.gask13.oghmai.network
 import net.gask13.oghmai.model.DescriptionRequest
 import net.gask13.oghmai.model.WordList
 import net.gask13.oghmai.model.WordResult
-import retrofit2.http.Body
-import retrofit2.http.DELETE
-import retrofit2.http.GET
-import retrofit2.http.POST
-import retrofit2.http.Path
+import retrofit2.http.*
 
 interface ApiService {
 
@@ -28,4 +24,7 @@ interface ApiService {
 
     @DELETE("word/{word}")
     suspend fun deleteWord(@Path("word") word: String)
+
+    @PATCH("word/{word}")
+    suspend fun undoDeleteWord(@Path("word") word: String, @Query("action") action: String = "undelete")
 }

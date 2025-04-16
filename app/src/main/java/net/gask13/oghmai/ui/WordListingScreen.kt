@@ -27,6 +27,9 @@ fun WordListingScreen(navController: NavHostController, viewModel: WordListingVi
     val words by viewModel.words.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    var recentlyDeletedWord by remember { mutableStateOf<String?>(null) }
+    var showSnackbar by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (isLoading) {
@@ -46,8 +49,10 @@ fun WordListingScreen(navController: NavHostController, viewModel: WordListingVi
                         confirmValueChange = { dismissValue ->
                             if (dismissValue == SwipeToDismissBoxValue.StartToEnd && !isActionTriggered.value) {
                                 isActionTriggered.value = true
+                                recentlyDeletedWord = word
                                 Log.d("SwipeToDismiss", "Word $word dismissed")
                                 viewModel.deleteWord(word)
+                                showSnackbar = true // Trigger snackbar
                                 true
                             } else {
                                 false
@@ -101,5 +106,26 @@ fun WordListingScreen(navController: NavHostController, viewModel: WordListingVi
                 }
             }
         }
+
+        // Trigger snackbar in a proper @Composable scope
+        if (showSnackbar && recentlyDeletedWord != null) {
+            LaunchedEffect(snackbarHostState, recentlyDeletedWord) {
+                val result = snackbarHostState.showSnackbar(
+                    message = "Deleted ${recentlyDeletedWord}",
+                    actionLabel = "Undo"
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    viewModel.undoDeleteWord(recentlyDeletedWord!!)
+                }
+                snackbarHostState.currentSnackbarData?.dismiss() // Dismiss the snackbar
+                showSnackbar = false // Reset snackbar trigger
+            }
+        }
+
+        // SnackbarHost to display the snackbar
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
