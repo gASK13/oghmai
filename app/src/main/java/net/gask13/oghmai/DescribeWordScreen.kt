@@ -1,6 +1,10 @@
 import android.content.Context
+import androidx.compose.foundation.gestures.FlingBehavior
+import androidx.compose.foundation.gestures.ScrollableDefaults
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -9,6 +13,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -23,12 +29,12 @@ import net.gask13.oghmai.network.RetrofitInstance
 
 @Composable
 fun DescribeWordScreen(navController: NavController) {
-    var inputText by remember { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<WordResult>>(emptyList()) }
+    var inputText by rememberSaveable { mutableStateOf("") }
+    var results by rememberSaveable { mutableStateOf<List<WordResult>>(emptyList()) }
+    var isGuessing by rememberSaveable { mutableStateOf(false) }
+    var isSaving by rememberSaveable { mutableStateOf(false) }
+    var savedWords by rememberSaveable { mutableStateOf<Set<String>>(emptySet()) }
     val coroutineScope = rememberCoroutineScope()
-    var isGuessing by remember { mutableStateOf(false) }
-    var isSaving by remember { mutableStateOf(false) }
-    var savedWords by remember { mutableStateOf<Set<String>>(emptySet()) }
     val focusRequester = remember { FocusRequester() }
 
     Column(
@@ -101,34 +107,48 @@ fun DescribeWordScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        val state = rememberLazyListState()
+
         LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f), // Ensures LazyRow occupies the remaining vertical space
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            state = state,
+            flingBehavior = rememberSnapFlingBehavior(lazyListState = state)
         ) {
             items(results.size) { index ->
                 val result = results[index]
                 Card(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 200.dp)
+                        .fillParentMaxWidth()
+                        .fillMaxHeight() // Ensures all cards have the same height as LazyRow
                         .padding(8.dp)
                 ) {
-                    Column(
+                    Box(
                         modifier = Modifier
+                            .fillMaxSize() // Ensures content fills the card
                             .padding(16.dp)
-                            .verticalScroll(rememberScrollState())
                     ) {
-                        Text("Word: ${result.word}", style = MaterialTheme.typography.bodyLarge)
-                        Text("Translation: ${result.translation}", style = MaterialTheme.typography.bodyLarge)
-                        Text("Definition: ${result.definition}", style = MaterialTheme.typography.bodyLarge)
-                        Text("Examples:", style = MaterialTheme.typography.bodyLarge)
-                        result.examples.forEach { ex ->
-                            Text("- $ex", style = MaterialTheme.typography.bodyMedium)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState()) // Enables scrolling within the card
+                        ) {
+                            Text("Word: ${result.word}", style = MaterialTheme.typography.bodyLarge)
+                            Text("Translation: ${result.translation}", style = MaterialTheme.typography.bodyLarge)
+                            Text("Definition: ${result.definition}", style = MaterialTheme.typography.bodyLarge)
+                            Text("Examples:", style = MaterialTheme.typography.bodyLarge)
+                            result.examples.forEach { ex ->
+                                Text("- $ex", style = MaterialTheme.typography.bodyMedium)
+                            }
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
-
                         Button(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd) // Positions the button at the bottom-right corner
+                                .padding(8.dp),
                             onClick = {
                                 isSaving = true
                                 coroutineScope.launch {
