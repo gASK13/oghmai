@@ -1,11 +1,15 @@
+import android.speech.tts.TextToSpeech
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
@@ -16,16 +20,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
+import net.gask13.oghmai.R
 import net.gask13.oghmai.model.DescriptionRequest
 import net.gask13.oghmai.model.WordResult
 import net.gask13.oghmai.network.RetrofitInstance
 
 @Composable
-fun DescribeWordScreen(navController: NavController) {
+fun DescribeWordScreen(navController: NavController, textToSpeech: TextToSpeech) {
     var inputText by rememberSaveable { mutableStateOf("") }
     var results by rememberSaveable { mutableStateOf<List<WordResult>>(emptyList()) }
     var isGuessing by rememberSaveable { mutableStateOf(false) }
@@ -131,31 +139,104 @@ fun DescribeWordScreen(navController: NavController) {
                         modifier = Modifier
                             .fillParentMaxWidth()
                             .fillMaxHeight()
-                            .padding(8.dp)
+                            .padding(8.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(8.dp)
                     ) {
-                        Box(
+                        Column(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(16.dp)
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Column(
+                            // Word Header
+                            Box(
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .verticalScroll(rememberScrollState())
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Text("Word: ${result.word}", style = MaterialTheme.typography.bodyLarge)
-                                Text("Translation: ${result.translation}", style = MaterialTheme.typography.bodyLarge)
-                                Text("Definition: ${result.definition}", style = MaterialTheme.typography.bodyLarge)
-                                Text("Examples:", style = MaterialTheme.typography.bodyLarge)
-                                result.examples.forEach { ex ->
-                                    Text("- $ex", style = MaterialTheme.typography.bodyMedium)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = result.word,
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.headlineLarge.copy(fontSize = 28.sp),
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_speaker),
+                                        contentDescription = "Speak Word",
+                                        tint = Color.White,
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clickable {
+                                                textToSpeech.speak(result.word, TextToSpeech.QUEUE_FLUSH, null, null)
+                                            }
+                                    )
                                 }
                             }
 
+                            // Scrollable content
+                            LazyColumn(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                item {
+                                    // Translation
+                                    Text(
+                                        text = "Translation: ${result.translation}",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                                item {
+                                    // Definition
+                                    Text(
+                                        text = result.definition,
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                }
+                                items(result.examples) { ex ->
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                            .padding(8.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text(
+                                                text = ex,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            Icon(
+                                                painter = painterResource(id = R.drawable.ic_speaker),
+                                                contentDescription = "Speak Example",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier
+                                                    .size(24.dp)
+                                                    .clickable {
+                                                        textToSpeech.speak(ex, TextToSpeech.QUEUE_FLUSH, null, null)
+                                                    }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Save Button
                             Button(
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(8.dp),
+                                modifier = Modifier.align(Alignment.End),
                                 onClick = {
                                     isSaving = true
                                     coroutineScope.launch {

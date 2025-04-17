@@ -146,7 +146,7 @@ fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeech) 
                 }
             }
         }
-        composable("describeWord") { DescribeWordScreen(navController) }
+        composable("describeWord") { DescribeWordScreen(navController, textToSpeech) }
         composable("listWords") { WordListingScreen(navController) }
         composable("wordDetail/{word}") { backStackEntry ->
             val word = backStackEntry.arguments?.getString("word") ?: ""

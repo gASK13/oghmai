@@ -113,20 +113,16 @@ fun WordDetailScreen(word: String, navController: NavHostController?, textToSpee
                     // Translation
                     Text(
                         text = "Translation: ${it.translation}",
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyMedium
                     )
 
                     // Definition
                     Text(
-                        text = "Definition: ${it.definition}",
+                        text = it.definition,
                         style = MaterialTheme.typography.bodyLarge
                     )
 
                     // Examples
-                    Text(
-                        text = "Examples:",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
                     it.examples.forEach { ex ->
                         Box(
                             modifier = Modifier
