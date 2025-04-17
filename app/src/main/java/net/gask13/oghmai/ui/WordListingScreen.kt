@@ -26,7 +26,6 @@ import androidx.navigation.NavHostController
 fun WordListingScreen(navController: NavHostController, viewModel: WordListingViewModel = viewModel()) {
     val words by viewModel.words.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     var recentlyDeletedWord by remember { mutableStateOf<Pair<String, Int>?>(null) }
     var showSnackbar by remember { mutableStateOf(false) }
@@ -85,7 +84,7 @@ fun WordListingScreen(navController: NavHostController, viewModel: WordListingVi
                                     .fillMaxWidth()
                                     .clickable(enabled = !isDismissed) {
                                         Log.d("Navigation", "Navigating to word detail for $word")
-                                        viewModel.onWordClick(context, word)
+                                        navController.navigate("wordDetail/$word")
                                     },
                                 shape = RoundedCornerShape(32.dp),
                                 colors = CardDefaults.cardColors(

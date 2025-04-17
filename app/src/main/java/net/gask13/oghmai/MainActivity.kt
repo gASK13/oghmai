@@ -21,16 +21,33 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import net.gask13.oghmai.ui.WordListingScreen
+import net.gask13.oghmai.ui.WordDetailActivity
+import net.gask13.oghmai.ui.WordDetailScreen
+import android.speech.tts.TextToSpeech
+import java.util.*
 
 class MainActivity : ComponentActivity() {
+    private lateinit var textToSpeech: TextToSpeech
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        textToSpeech = TextToSpeech(this) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                textToSpeech.language = Locale.ITALIAN
+            }
+        }
+
         setContent {
             val navController = rememberNavController()
 
-            OghmAINavHost(navController)
+            OghmAINavHost(navController, textToSpeech)
         }
+    }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        textToSpeech.shutdown()
     }
 }
 
@@ -92,7 +109,7 @@ fun SettingsScreen(
 }
 
 @Composable
-fun OghmAINavHost(navController: NavHostController) {
+fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeech) {
     NavHost(navController, startDestination = "main",
         enterTransition = {
             slideInHorizontally(
@@ -131,6 +148,10 @@ fun OghmAINavHost(navController: NavHostController) {
         }
         composable("describeWord") { DescribeWordScreen(navController) }
         composable("listWords") { WordListingScreen(navController) }
+        composable("wordDetail/{word}") { backStackEntry ->
+            val word = backStackEntry.arguments?.getString("word") ?: ""
+            WordDetailScreen(word, navController, textToSpeech)
+        }
         composable("settings") {
             SettingsScreen()
         }
