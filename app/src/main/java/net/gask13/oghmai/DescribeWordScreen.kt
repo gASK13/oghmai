@@ -32,6 +32,13 @@ import net.gask13.oghmai.R
 import net.gask13.oghmai.model.DescriptionRequest
 import net.gask13.oghmai.model.WordResult
 import net.gask13.oghmai.network.RetrofitInstance
+import android.content.Intent
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun DescribeWordScreen(navController: NavController, textToSpeech: TextToSpeech) {
@@ -43,6 +50,19 @@ fun DescribeWordScreen(navController: NavController, textToSpeech: TextToSpeech)
     val coroutineScope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val speechRecognizerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+            if (spokenText != null) {
+                inputText = spokenText
+            } else {
+                Toast.makeText(context, "No speech detected", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
@@ -81,7 +101,22 @@ fun DescribeWordScreen(navController: NavController, textToSpeech: TextToSpeech)
                     .focusRequester(focusRequester),
                 keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { focusRequester.freeFocus() }),
-                enabled = !isGuessing && !isSaving
+                enabled = !isGuessing && !isSaving,
+                trailingIcon = {
+                    IconButton(onClick = {
+                        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "it-IT") // Set to Italian
+                            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now")
+                        }
+                        speechRecognizerLauncher.launch(intent)
+                    }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_microphone),
+                            contentDescription = "Voice Input"
+                        )
+                    }
+                }
             )
 
             Spacer(modifier = Modifier.height(8.dp))
