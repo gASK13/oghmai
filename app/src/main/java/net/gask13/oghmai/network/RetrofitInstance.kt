@@ -2,7 +2,6 @@ package net.gask13.oghmai.network
 
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
-import okhttp3.Response
 import java.io.IOException
 import net.gask13.oghmai.BuildConfig
 import retrofit2.Retrofit

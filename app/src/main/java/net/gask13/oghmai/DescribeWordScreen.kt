@@ -1,4 +1,3 @@
-import android.content.Context
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -33,166 +32,178 @@ fun DescribeWordScreen(navController: NavController) {
     var isSaving by rememberSaveable { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        Text("Describe Word", style = MaterialTheme.typography.headlineMedium)
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        OutlinedTextField(
-            value = inputText,
-            onValueChange = { inputText = it },
-            label = { Text("Enter a word or description") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(focusRequester),
-            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { focusRequester.freeFocus() }),
-            enabled = !isGuessing && !isSaving
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+        Column(
+            modifier = Modifier.fillMaxSize()
         ) {
-            Button(
-                onClick = {
-                    isGuessing = true
-                    coroutineScope.launch {
-                        try {
-                            val wordResult = RetrofitInstance.apiService.describeWord(
-                                DescriptionRequest(inputText, results.map { it.word })
-                            )
-                            results = results + wordResult
-                            focusRequester.freeFocus()
-                        } catch (e: Exception) {
-                            showResult(navController.context, "Error: ${e.message}")
-                        } finally {
-                            isGuessing = false
-                        }
-                    }
-                },
-                enabled = inputText.isNotEmpty() && !isGuessing && !isSaving
+            Text("Describe Word", style = MaterialTheme.typography.headlineMedium)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = inputText,
+                onValueChange = { inputText = it },
+                label = { Text("Enter a word or description") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester),
+                keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusRequester.freeFocus() }),
+                enabled = !isGuessing && !isSaving
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                if (isGuessing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text(if (results.isEmpty()) "Guess" else "Next Guess")
+                Button(
+                    onClick = {
+                        isGuessing = true
+                        coroutineScope.launch {
+                            try {
+                                val wordResult = RetrofitInstance.apiService.describeWord(
+                                    DescriptionRequest(inputText, results.map { it.word })
+                                )
+                                if (wordResult.isSuccessful) {
+                                    if (wordResult.body() != null) {
+                                        results = listOf(wordResult.body()!!) + results
+                                    } else {
+                                        snackbarHostState.showSnackbar("No more matches!", duration = SnackbarDuration.Short, withDismissAction = true)
+                                    }
+                                } else {
+                                    snackbarHostState.showSnackbar("Error: ${wordResult.errorBody()?.string()}", duration = SnackbarDuration.Short, withDismissAction = true)
+                                }
+                                focusRequester.freeFocus()
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar("Error: ${e.message}", duration = SnackbarDuration.Short, withDismissAction = true)
+                            } finally {
+                                isGuessing = false
+                            }
+                        }
+                    },
+                    enabled = inputText.isNotEmpty() && !isGuessing && !isSaving
+                ) {
+                    if (isGuessing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(if (results.isEmpty()) "Guess" else "Next Guess")
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        inputText = ""
+                        results = emptyList()
+                    },
+                    enabled = !isGuessing && !isSaving && results.isNotEmpty()
+                ) {
+                    Text("Reset")
                 }
             }
 
-            Button(
-                onClick = {
-                    inputText = ""
-                    results = emptyList()
-                },
-                enabled = !isGuessing && !isSaving && results.isNotEmpty()
+            Spacer(modifier = Modifier.height(16.dp))
+
+            val state = rememberLazyListState()
+
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                state = state,
+                flingBehavior = rememberSnapFlingBehavior(lazyListState = state)
             ) {
-                Text("Reset")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        val state = rememberLazyListState()
-
-        LazyRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f), // Ensures LazyRow occupies the remaining vertical space
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            state = state,
-            flingBehavior = rememberSnapFlingBehavior(lazyListState = state)
-        ) {
-            items(results.size) { index ->
-                val result = results[index]
-                Card(
-                    modifier = Modifier
-                        .fillParentMaxWidth()
-                        .fillMaxHeight() // Ensures all cards have the same height as LazyRow
-                        .padding(8.dp)
-                ) {
-                    Box(
+                items(results.size) { index ->
+                    val result = results[index]
+                    Card(
                         modifier = Modifier
-                            .fillMaxSize() // Ensures content fills the card
-                            .padding(16.dp)
+                            .fillParentMaxWidth()
+                            .fillMaxHeight()
+                            .padding(8.dp)
                     ) {
-                        Column(
+                        Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .verticalScroll(rememberScrollState()) // Enables scrolling within the card
+                                .padding(16.dp)
                         ) {
-                            Text("Word: ${result.word}", style = MaterialTheme.typography.bodyLarge)
-                            Text("Translation: ${result.translation}", style = MaterialTheme.typography.bodyLarge)
-                            Text("Definition: ${result.definition}", style = MaterialTheme.typography.bodyLarge)
-                            Text("Examples:", style = MaterialTheme.typography.bodyLarge)
-                            result.examples.forEach { ex ->
-                                Text("- $ex", style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
-
-                        Button(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd) // Positions the button at the bottom-right corner
-                                .padding(8.dp),
-                            onClick = {
-                                isSaving = true
-                                coroutineScope.launch {
-                                    try {
-                                        RetrofitInstance.apiService.saveWord(result)
-                                        result.saved = true
-                                    } catch (e: Exception) {
-                                        showResult(navController.context, "Error: ${e.message}")
-                                    } finally {
-                                        isSaving = false
-                                    }
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState())
+                            ) {
+                                Text("Word: ${result.word}", style = MaterialTheme.typography.bodyLarge)
+                                Text("Translation: ${result.translation}", style = MaterialTheme.typography.bodyLarge)
+                                Text("Definition: ${result.definition}", style = MaterialTheme.typography.bodyLarge)
+                                Text("Examples:", style = MaterialTheme.typography.bodyLarge)
+                                result.examples.forEach { ex ->
+                                    Text("- $ex", style = MaterialTheme.typography.bodyMedium)
                                 }
-                            },
-                            enabled = !isSaving && !result.saved,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                disabledContainerColor = if (result.saved) Color(0xFF4CAF50) else MaterialTheme.colorScheme.secondary,
-                                disabledContentColor = MaterialTheme.colorScheme.onPrimary
-                            )
-                        ) {
-                            if (result.saved) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "Saved",
-                                    tint = MaterialTheme.colorScheme.onPrimary
+                            }
+
+                            Button(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(8.dp),
+                                onClick = {
+                                    isSaving = true
+                                    coroutineScope.launch {
+                                        try {
+                                            RetrofitInstance.apiService.saveWord(result)
+                                            result.saved = true
+                                        } catch (e: Exception) {
+                                            snackbarHostState.showSnackbar("Error: ${e.message}", duration = SnackbarDuration.Short, withDismissAction = true)
+                                        } finally {
+                                            isSaving = false
+                                        }
+                                    }
+                                },
+                                enabled = !isSaving && !result.saved,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    disabledContainerColor = if (result.saved) Color(0xFF4CAF50) else MaterialTheme.colorScheme.secondary,
+                                    disabledContentColor = MaterialTheme.colorScheme.onPrimary
                                 )
-                            } else {
-                                Text("Save")
+                            ) {
+                                if (result.saved) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Saved",
+                                        tint = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                } else {
+                                    Text("Save")
+                                }
                             }
                         }
                     }
                 }
             }
+
+            LaunchedEffect(results) {
+                if (results.isNotEmpty()) {
+                    state.scrollToItem(0)
+                }
+            }
         }
+
+        // SnackbarHost positioned over the content
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(16.dp) // Optional padding
+        )
     }
-}
-
-private fun showResult(context: Context, result: String) {
-    val builder = android.app.AlertDialog.Builder(context)
-    builder.setTitle("ERROR")
-        .setMessage(result)
-        .setCancelable(true) // Disables touch outside dialog to dismiss it
-        // "No" button, dismiss dialog
-        .setPositiveButton("Ok") { dialog, id ->
-            dialog.dismiss()
-        }
-
-    // Create and show the dialog
-    val dialog = builder.create()
-    dialog.show()
 }

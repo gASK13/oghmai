@@ -3,12 +3,13 @@ package net.gask13.oghmai.network
 import net.gask13.oghmai.model.DescriptionRequest
 import net.gask13.oghmai.model.WordList
 import net.gask13.oghmai.model.WordResult
+import retrofit2.Response
 import retrofit2.http.*
 
 interface ApiService {
 
     @POST("describe-word")
-    suspend fun describeWord(@Body word: DescriptionRequest): WordResult
+    suspend fun describeWord(@Body word: DescriptionRequest): Response<WordResult>
 
     @DELETE("words")
     suspend fun purgeWords()
