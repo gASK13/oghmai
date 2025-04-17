@@ -2,6 +2,7 @@ package net.gask13.oghmai.ui
 
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -51,7 +52,24 @@ class WordDetailActivity : ComponentActivity() {
 @Composable
 fun WordDetailScreen(word: String, navController: NavHostController?, textToSpeech: TextToSpeech) {
     var wordResult by remember { mutableStateOf<WordResult?>(null) }
+    var speakingWord by remember { mutableStateOf<String?>(null) } // Track which word/example is speaking
     val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {
+                // No action needed on start
+            }
+
+            override fun onDone(utteranceId: String?) {
+                speakingWord = null // Reset speakingWord when speech finishes
+            }
+
+            override fun onError(utteranceId: String?) {
+                // Handle errors if needed
+            }
+        })
+    }
 
     LaunchedEffect(word) {
         coroutineScope.launch {
@@ -98,13 +116,21 @@ fun WordDetailScreen(word: String, navController: NavHostController?, textToSpee
                                 textAlign = TextAlign.Center
                             )
                             Icon(
-                                painter = painterResource(id = R.drawable.ic_speaker),
-                                contentDescription = "Speak Word",
+                                painter = painterResource(
+                                    id = if (speakingWord == it.word) R.drawable.ic_pause else R.drawable.ic_speaker
+                                ),
+                                contentDescription = if (speakingWord == it.word) "Pause Speech" else "Speak Word",
                                 tint = Color.White,
                                 modifier = Modifier
-                                    .size(48.dp) // Increased size
+                                    .size(48.dp)
                                     .clickable {
-                                        textToSpeech.speak(it.word, TextToSpeech.QUEUE_FLUSH, null, null)
+                                        if (speakingWord == it.word) {
+                                            textToSpeech.stop()
+                                            speakingWord = null
+                                        } else {
+                                            textToSpeech.speak(it.word, TextToSpeech.QUEUE_FLUSH, null, it.word)
+                                            speakingWord = it.word
+                                        }
                                     }
                             )
                         }
@@ -128,7 +154,7 @@ fun WordDetailScreen(word: String, navController: NavHostController?, textToSpee
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), // Darker shade
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
                                     shape = RoundedCornerShape(8.dp)
                                 )
                                 .padding(8.dp)
@@ -143,13 +169,21 @@ fun WordDetailScreen(word: String, navController: NavHostController?, textToSpee
                                     modifier = Modifier.weight(1f)
                                 )
                                 Icon(
-                                    painter = painterResource(id = R.drawable.ic_speaker),
-                                    contentDescription = "Speak Example",
+                                    painter = painterResource(
+                                        id = if (speakingWord == ex) R.drawable.ic_pause else R.drawable.ic_speaker
+                                    ),
+                                    contentDescription = if (speakingWord == ex) "Pause Speech" else "Speak Example",
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier
                                         .size(24.dp)
                                         .clickable {
-                                            textToSpeech.speak(ex, TextToSpeech.QUEUE_FLUSH, null, null)
+                                            if (speakingWord == ex) {
+                                                textToSpeech.stop()
+                                                speakingWord = null
+                                            } else {
+                                                textToSpeech.speak(ex, TextToSpeech.QUEUE_FLUSH, null, ex)
+                                                speakingWord = ex
+                                            }
                                         }
                                 )
                             }
@@ -165,3 +199,4 @@ fun WordDetailScreen(word: String, navController: NavHostController?, textToSpee
         Text("Loading...", style = MaterialTheme.typography.bodyLarge)
     }
 }
+

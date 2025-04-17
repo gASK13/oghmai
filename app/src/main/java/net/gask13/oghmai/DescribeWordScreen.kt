@@ -1,4 +1,5 @@
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -38,9 +39,26 @@ fun DescribeWordScreen(navController: NavController, textToSpeech: TextToSpeech)
     var results by rememberSaveable { mutableStateOf<List<WordResult>>(emptyList()) }
     var isGuessing by rememberSaveable { mutableStateOf(false) }
     var isSaving by rememberSaveable { mutableStateOf(false) }
+    var speakingWord by remember { mutableStateOf<String?>(null) } // Track which word/example is speaking
     val coroutineScope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {
+                // No action needed on start
+            }
+
+            override fun onDone(utteranceId: String?) {
+                speakingWord = null // Reset speakingWord when speech finishes
+            }
+
+            override fun onError(utteranceId: String?) {
+                // Handle errors if needed
+            }
+        })
+    }
 
     Box(
         modifier = Modifier
@@ -169,13 +187,21 @@ fun DescribeWordScreen(navController: NavController, textToSpeech: TextToSpeech)
                                         textAlign = TextAlign.Center
                                     )
                                     Icon(
-                                        painter = painterResource(id = R.drawable.ic_speaker),
-                                        contentDescription = "Speak Word",
+                                        painter = painterResource(
+                                            id = if (speakingWord == result.word) R.drawable.ic_pause else R.drawable.ic_speaker
+                                        ),
+                                        contentDescription = if (speakingWord == result.word) "Pause Speech" else "Speak Word",
                                         tint = Color.White,
                                         modifier = Modifier
                                             .size(48.dp)
                                             .clickable {
-                                                textToSpeech.speak(result.word, TextToSpeech.QUEUE_FLUSH, null, null)
+                                                if (speakingWord == result.word) {
+                                                    textToSpeech.stop()
+                                                    speakingWord = null
+                                                } else {
+                                                    textToSpeech.speak(result.word, TextToSpeech.QUEUE_FLUSH, null, result.word)
+                                                    speakingWord = result.word
+                                                }
                                             }
                                     )
                                 }
@@ -220,13 +246,21 @@ fun DescribeWordScreen(navController: NavController, textToSpeech: TextToSpeech)
                                                 modifier = Modifier.weight(1f)
                                             )
                                             Icon(
-                                                painter = painterResource(id = R.drawable.ic_speaker),
-                                                contentDescription = "Speak Example",
+                                                painter = painterResource(
+                                                    id = if (speakingWord == ex) R.drawable.ic_pause else R.drawable.ic_speaker
+                                                ),
+                                                contentDescription = if (speakingWord == ex) "Pause Speech" else "Speak Example",
                                                 tint = MaterialTheme.colorScheme.primary,
                                                 modifier = Modifier
                                                     .size(24.dp)
                                                     .clickable {
-                                                        textToSpeech.speak(ex, TextToSpeech.QUEUE_FLUSH, null, null)
+                                                        if (speakingWord == ex) {
+                                                            textToSpeech.stop()
+                                                            speakingWord = null
+                                                        } else {
+                                                            textToSpeech.speak(ex, TextToSpeech.QUEUE_FLUSH, null, ex)
+                                                            speakingWord = ex
+                                                        }
                                                     }
                                             )
                                         }
