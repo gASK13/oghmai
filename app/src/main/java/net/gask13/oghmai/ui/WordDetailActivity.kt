@@ -1,10 +1,7 @@
 package net.gask13.oghmai.ui
 
-import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,34 +20,13 @@ import kotlinx.coroutines.launch
 import net.gask13.oghmai.R
 import net.gask13.oghmai.model.WordResult
 import net.gask13.oghmai.network.RetrofitInstance
-import java.util.*
-
-class WordDetailActivity : ComponentActivity() {
-    private lateinit var textToSpeech: TextToSpeech
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        textToSpeech = TextToSpeech(this) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                textToSpeech.language = Locale.ITALIAN
-            }
-        }
-
-        val word = intent.getStringExtra("word") ?: return
-
-        setContent {
-            WordDetailScreen(word = word, navController = null, textToSpeech = textToSpeech)
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        textToSpeech.shutdown()
-    }
-}
 
 @Composable
-fun WordDetailScreen(word: String, navController: NavHostController?, textToSpeech: TextToSpeech) {
+fun WordDetailScreen(
+    word: String,
+    navController: NavHostController?,
+    textToSpeech: TextToSpeech
+) {
     var wordResult by remember { mutableStateOf<WordResult?>(null) }
     var speakingWord by remember { mutableStateOf<String?>(null) } // Track which word/example is speaking
     val coroutineScope = rememberCoroutineScope()
@@ -199,4 +175,3 @@ fun WordDetailScreen(word: String, navController: NavHostController?, textToSpee
         Text("Loading...", style = MaterialTheme.typography.bodyLarge)
     }
 }
-

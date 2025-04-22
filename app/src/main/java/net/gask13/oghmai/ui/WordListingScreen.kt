@@ -15,11 +15,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,7 +84,9 @@ fun WordListingScreen(navController: NavHostController, viewModel: WordListingVi
                                     .fillMaxWidth()
                                     .clickable(enabled = !isDismissed) {
                                         Log.d("Navigation", "Navigating to word detail for $word")
-                                        navController.navigate("wordDetail/$word")
+                                        navController.navigate("wordDetail/$word") {
+                                            // Pass textToSpeech to WordDetailScreen
+                                        }
                                     },
                                 shape = RoundedCornerShape(32.dp),
                                 colors = CardDefaults.cardColors(

@@ -56,12 +56,4 @@ class WordListingViewModel(application: Application) : AndroidViewModel(applicat
             }
         }
     }
-
-    fun onWordClick(context: Context, word: String) {
-        val intent = Intent(context, WordDetailActivity::class.java).apply {
-            putExtra("word", word)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        context.startActivity(intent)
-    }
 }

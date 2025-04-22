@@ -21,7 +21,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import net.gask13.oghmai.ui.WordListingScreen
-import net.gask13.oghmai.ui.WordDetailActivity
 import net.gask13.oghmai.ui.WordDetailScreen
 import android.speech.tts.TextToSpeech
 import java.util.*
