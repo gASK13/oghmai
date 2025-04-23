@@ -21,6 +21,7 @@ import net.gask13.oghmai.R
 import net.gask13.oghmai.model.WordResult
 import net.gask13.oghmai.model.WordStatus
 import net.gask13.oghmai.services.TextToSpeechWrapper
+import net.gask13.oghmai.ui.components.WordStatusBadge
 
 @Composable
 fun WordResultCard(
@@ -139,32 +140,28 @@ fun WordResultCard(
                 }
             }
 
-            // Save Button (if provided)
+            // Save Button or Status Badge
             onSave?.let {
-                Button(
-                    modifier = Modifier.align(Alignment.End),
-                    onClick = it,
-                    enabled = !isSaving && wordResult.status == WordStatus.UNSAVED,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        disabledContainerColor = if (wordResult.status != WordStatus.UNSAVED) Color(0xFF4CAF50) else MaterialTheme.colorScheme.secondary,
-                        disabledContentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    if (wordResult.status != WordStatus.UNSAVED) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = "Saved",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    } else if (isSaving) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text("Save")
+                if (wordResult.status == WordStatus.UNSAVED) {
+                    Button(
+                        modifier = Modifier.align(Alignment.End),
+                        onClick = it,
+                        enabled = !isSaving
+                    ) {
+                        if (isSaving) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text("Save")
+                        }
                     }
+                } else {
+                    WordStatusBadge(
+                        wordStatus = wordResult.status,
+                        modifier = Modifier.align(Alignment.End)
+                    )
                 }
             }
         }

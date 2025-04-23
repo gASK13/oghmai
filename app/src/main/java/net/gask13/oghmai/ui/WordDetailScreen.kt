@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import kotlinx.coroutines.launch
@@ -18,6 +19,7 @@ import net.gask13.oghmai.model.WordStatus
 import net.gask13.oghmai.network.RetrofitInstance
 import net.gask13.oghmai.services.TextToSpeechWrapper
 import net.gask13.oghmai.ui.components.WordResultCard
+import net.gask13.oghmai.ui.components.WordStatusBadge
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -90,7 +92,7 @@ fun WordDetailScreen(
                                         .size(12.dp)
                                         .padding(end = 4.dp)
                                         .background(
-                                            color = if (result) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                            color = if (result) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
                                             shape = MaterialTheme.shapes.small
                                         )
                                 )
@@ -99,25 +101,10 @@ fun WordDetailScreen(
                     }
 
                     // Display status as a badge
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 8.dp)
-                            .background(
-                                color = when (it.status) {
-                                    WordStatus.NEW -> MaterialTheme.colorScheme.secondary
-                                    WordStatus.KNOWN -> MaterialTheme.colorScheme.primary
-                                    else -> MaterialTheme.colorScheme.surface
-                                },
-                                shape = MaterialTheme.shapes.small
-                            )
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = it.status.name,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondary,
-                        )
-                    }
+                    WordStatusBadge(
+                        wordStatus = it.status,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
                 }
             }
         }
