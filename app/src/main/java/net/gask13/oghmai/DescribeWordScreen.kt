@@ -1,7 +1,5 @@
 import android.content.Intent
 import android.speech.RecognizerIntent
-import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -27,16 +25,17 @@ import kotlinx.coroutines.launch
 import net.gask13.oghmai.R
 import net.gask13.oghmai.model.DescriptionRequest
 import net.gask13.oghmai.model.WordResult
+import net.gask13.oghmai.model.WordStatus
 import net.gask13.oghmai.network.RetrofitInstance
+import net.gask13.oghmai.services.TextToSpeechWrapper
 import net.gask13.oghmai.ui.components.WordResultCard
 
 @Composable
-fun DescribeWordScreen(navController: NavController, textToSpeech: TextToSpeech) {
+fun DescribeWordScreen(navController: NavController, textToSpeech: TextToSpeechWrapper) {
     var inputText by rememberSaveable { mutableStateOf("") }
     var results by rememberSaveable { mutableStateOf<List<WordResult>>(emptyList()) }
     var isGuessing by rememberSaveable { mutableStateOf(false) }
     var isSaving by rememberSaveable { mutableStateOf(false) }
-    var speakingWord by remember { mutableStateOf<String?>(null) } // Track which word/example is speaking
     val coroutineScope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -52,22 +51,6 @@ fun DescribeWordScreen(navController: NavController, textToSpeech: TextToSpeech)
                 Toast.makeText(context, "No speech detected", Toast.LENGTH_SHORT).show()
             }
         }
-    }
-
-    LaunchedEffect(Unit) {
-        textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) {
-                // No action needed on start
-            }
-
-            override fun onDone(utteranceId: String?) {
-                speakingWord = null // Reset speakingWord when speech finishes
-            }
-
-            override fun onError(utteranceId: String?) {
-                // Handle errors if needed
-            }
-        })
     }
 
     Box(
@@ -180,7 +163,6 @@ fun DescribeWordScreen(navController: NavController, textToSpeech: TextToSpeech)
                     val result = results[index]
                     WordResultCard(
                         wordResult = result,
-                        speakingWord = speakingWord,
                         textToSpeech = textToSpeech,
                         modifier = Modifier.fillParentMaxWidth().fillMaxHeight(),
                         isSaving = isSaving,
@@ -189,7 +171,7 @@ fun DescribeWordScreen(navController: NavController, textToSpeech: TextToSpeech)
                             coroutineScope.launch {
                                 try {
                                     RetrofitInstance.apiService.saveWord(result)
-                                    result.saved = true
+                                    result.status = WordStatus.NEW
                                 } catch (e: Exception) {
                                     snackbarHostState.showSnackbar("Error: ${e.message}", duration = SnackbarDuration.Short, withDismissAction = true)
                                 } finally {

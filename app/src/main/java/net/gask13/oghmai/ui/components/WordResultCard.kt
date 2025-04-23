@@ -1,6 +1,5 @@
 package net.gask13.oghmai.ui.components
 
-import android.speech.tts.TextToSpeech
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,7 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,18 +19,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.gask13.oghmai.R
 import net.gask13.oghmai.model.WordResult
+import net.gask13.oghmai.model.WordStatus
+import net.gask13.oghmai.services.TextToSpeechWrapper
 
 @Composable
 fun WordResultCard(
     wordResult: WordResult,
-    speakingWord: String?,
-    textToSpeech: TextToSpeech,
+    textToSpeech: TextToSpeechWrapper,
     modifier: Modifier = Modifier,
     isSaving: Boolean = false,
     onSave: (() -> Unit)? = null // Optional Save action
 ) {
-    var localSpeakingWord by remember { mutableStateOf(speakingWord) }
-
     Card(
         modifier = modifier
             .padding(8.dp),
@@ -65,19 +63,17 @@ fun WordResultCard(
                     )
                     Icon(
                         painter = painterResource(
-                            id = if (localSpeakingWord == wordResult.word) R.drawable.ic_pause else R.drawable.ic_speaker
+                            id = if (textToSpeech.storedUtteranceId == wordResult.word) R.drawable.ic_pause else R.drawable.ic_speaker
                         ),
-                        contentDescription = if (localSpeakingWord == wordResult.word) "Pause Speech" else "Speak Word",
+                        contentDescription = if (textToSpeech.storedUtteranceId == wordResult.word) "Pause Speech" else "Speak Word",
                         tint = Color.White,
                         modifier = Modifier
                             .size(48.dp)
                             .clickable {
-                                if (localSpeakingWord == wordResult.word) {
+                                if (textToSpeech.storedUtteranceId == wordResult.word) {
                                     textToSpeech.stop()
-                                    localSpeakingWord = null
                                 } else {
-                                    textToSpeech.speak(wordResult.word, TextToSpeech.QUEUE_FLUSH, null, wordResult.word)
-                                    localSpeakingWord = wordResult.word
+                                    textToSpeech.speak(wordResult.word,  wordResult.word)
                                 }
                             }
                     )
@@ -124,19 +120,17 @@ fun WordResultCard(
                             )
                             Icon(
                                 painter = painterResource(
-                                    id = if (localSpeakingWord == ex) R.drawable.ic_pause else R.drawable.ic_speaker
+                                    id = if (textToSpeech.storedUtteranceId == ex) R.drawable.ic_pause else R.drawable.ic_speaker
                                 ),
-                                contentDescription = if (localSpeakingWord == ex) "Pause Speech" else "Speak Example",
+                                contentDescription = if (textToSpeech.storedUtteranceId == ex) "Pause Speech" else "Speak Example",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier
                                     .size(24.dp)
                                     .clickable {
-                                        if (localSpeakingWord == ex) {
+                                        if (textToSpeech.storedUtteranceId == ex) {
                                             textToSpeech.stop()
-                                            localSpeakingWord = null
                                         } else {
-                                            textToSpeech.speak(ex, TextToSpeech.QUEUE_FLUSH, null, ex)
-                                            localSpeakingWord = ex
+                                            textToSpeech.speak(ex, ex)
                                         }
                                     }
                             )
@@ -150,14 +144,14 @@ fun WordResultCard(
                 Button(
                     modifier = Modifier.align(Alignment.End),
                     onClick = it,
-                    enabled = !isSaving && !wordResult.saved,
+                    enabled = !isSaving && wordResult.status == WordStatus.UNSAVED,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
-                        disabledContainerColor = if (wordResult.saved) Color(0xFF4CAF50) else MaterialTheme.colorScheme.secondary,
+                        disabledContainerColor = if (wordResult.status != WordStatus.UNSAVED) Color(0xFF4CAF50) else MaterialTheme.colorScheme.secondary,
                         disabledContentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
-                    if (wordResult.saved) {
+                    if (wordResult.status != WordStatus.UNSAVED) {
                         Icon(
                             imageVector = Icons.Default.Check,
                             contentDescription = "Saved",

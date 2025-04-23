@@ -1,41 +1,41 @@
 package net.gask13.oghmai
 
 import DescribeWordScreen
-import android.util.Log
-import android.app.AlertDialog
-import android.content.Context
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import net.gask13.oghmai.ui.WordListingScreen
+import net.gask13.oghmai.services.TextToSpeechWrapper
 import net.gask13.oghmai.ui.WordDetailScreen
-import android.speech.tts.TextToSpeech
+import net.gask13.oghmai.ui.WordListingScreen
 import java.util.*
 
 class MainActivity : ComponentActivity() {
-    private lateinit var textToSpeech: TextToSpeech
+    private lateinit var textToSpeech: TextToSpeechWrapper
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        textToSpeech = TextToSpeech(this) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                textToSpeech.language = Locale.ITALIAN
-            }
-        }
+        textToSpeech = TextToSpeechWrapper()
+        textToSpeech.initializeTextToSpeech(this)
 
         setContent {
             val navController = rememberNavController()
@@ -108,7 +108,7 @@ fun SettingsScreen(
 }
 
 @Composable
-fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeech) {
+fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWrapper) {
     NavHost(navController, startDestination = "main",
         enterTransition = {
             slideInHorizontally(
@@ -149,26 +149,11 @@ fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeech) 
         composable("listWords") { WordListingScreen(navController) }
         composable("wordDetail/{word}") { backStackEntry ->
             val word = backStackEntry.arguments?.getString("word") ?: ""
-            WordDetailScreen(word, navController, textToSpeech)
+            WordDetailScreen(word, navController,  textToSpeech)
         }
         composable("settings") {
             SettingsScreen()
         }
     }
-}
-
-private fun showDeleteResult(context: Context, result: String) {
-    val builder = AlertDialog.Builder(context)
-    builder.setTitle("DELETE")
-        .setMessage(result)
-        .setCancelable(true) // Disables touch outside dialog to dismiss it
-        // "No" button, dismiss dialog
-        .setPositiveButton("Ok") { dialog, id ->
-            dialog.dismiss()
-        }
-
-    // Create and show the dialog
-    val dialog = builder.create()
-    dialog.show()
 }
 

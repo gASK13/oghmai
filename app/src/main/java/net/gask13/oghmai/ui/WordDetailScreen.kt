@@ -1,9 +1,12 @@
 package net.gask13.oghmai.ui
 
-import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -11,34 +14,21 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import kotlinx.coroutines.launch
 import net.gask13.oghmai.model.WordResult
+import net.gask13.oghmai.model.WordStatus
 import net.gask13.oghmai.network.RetrofitInstance
+import net.gask13.oghmai.services.TextToSpeechWrapper
 import net.gask13.oghmai.ui.components.WordResultCard
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 @Composable
 fun WordDetailScreen(
     word: String,
     navController: NavHostController?,
-    textToSpeech: TextToSpeech
+    textToSpeech: TextToSpeechWrapper
 ) {
     var wordResult by remember { mutableStateOf<WordResult?>(null) }
-    var speakingWord by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
-
-    LaunchedEffect(Unit) {
-        textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) {
-                // No action needed on start
-            }
-
-            override fun onDone(utteranceId: String?) {
-                speakingWord = null // Reset speakingWord when speech finishes
-            }
-
-            override fun onError(utteranceId: String?) {
-                // Handle errors if needed
-            }
-        })
-    }
 
     LaunchedEffect(word) {
         coroutineScope.launch {
@@ -48,19 +38,88 @@ fun WordDetailScreen(
     }
 
     wordResult?.let {
-        Box(
+        val dateFormatter = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
-            contentAlignment = Alignment.Center
+            horizontalAlignment = Alignment.Start
         ) {
             WordResultCard(
                 wordResult = it,
-                speakingWord = speakingWord,
                 textToSpeech = textToSpeech,
                 modifier = Modifier
-                    .fillMaxHeight(0.5f)
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.7f)
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Card(
+                modifier = Modifier.padding(8.dp).fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(8.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Display creation date
+                    Text(
+                        text = "Created At: ${it.createdAt?.let { date -> dateFormatter.format(date) } ?: "N/A"}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    // Display last test date and test results
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        Text(
+                            text = "Last Test: ${it.lastTest?.let { date -> dateFormatter.format(date) } ?: "N/A"}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Row {
+                            it.testResults.forEach { result ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(12.dp)
+                                        .padding(end = 4.dp)
+                                        .background(
+                                            color = if (result) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                            shape = MaterialTheme.shapes.small
+                                        )
+                                )
+                            }
+                        }
+                    }
+
+                    // Display status as a badge
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .background(
+                                color = when (it.status) {
+                                    WordStatus.NEW -> MaterialTheme.colorScheme.secondary
+                                    WordStatus.KNOWN -> MaterialTheme.colorScheme.primary
+                                    else -> MaterialTheme.colorScheme.surface
+                                },
+                                shape = MaterialTheme.shapes.small
+                            )
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = it.status.name,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondary,
+                        )
+                    }
+                }
+            }
         }
     } ?: Box(
         modifier = Modifier.fillMaxSize(),

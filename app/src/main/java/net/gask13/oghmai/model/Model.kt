@@ -1,11 +1,23 @@
 package net.gask13.oghmai.model
 
+import java.sql.Timestamp
+
+enum class WordStatus {
+    UNSAVED,
+    NEW,
+    LEARNED,
+    KNOWN,
+    MASTERED
+}
 data class WordResult(
     val word: String,
     val translation: String,
     val definition: String,
     val examples: List<String>,
-    var saved: Boolean = false,
+    val createdAt: Timestamp?,
+    val lastTest: Timestamp?,
+    val testResults: List<Boolean>,
+    var status: WordStatus,
 )
 
 data class DescriptionRequest(
