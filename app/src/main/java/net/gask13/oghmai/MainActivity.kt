@@ -26,6 +26,7 @@ import androidx.navigation.compose.rememberNavController
 import net.gask13.oghmai.services.TextToSpeechWrapper
 import net.gask13.oghmai.ui.WordDetailScreen
 import net.gask13.oghmai.ui.WordListingScreen
+import net.gask13.oghmai.ui.ChallengeScreen
 import java.util.*
 
 class MainActivity : ComponentActivity() {
@@ -75,11 +76,13 @@ fun MainMenuScreen(onNavigate: (String) -> Unit) {
                 Text("Describe Word")
             }
 
-            DisabledButton("Add Word")
             Button(onClick = { onNavigate("listWords") }) {
                 Text("List Words")
             }
-            DisabledButton("Test")
+
+            Button(onClick = { onNavigate("testWords") }) {
+                Text("Test Knowledge")
+            }
         }
     }
 }
@@ -154,6 +157,8 @@ fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWr
         composable("settings") {
             SettingsScreen()
         }
+        composable("testWords") {
+            ChallengeScreen(navController)
+        }
     }
 }
-

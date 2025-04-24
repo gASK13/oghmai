@@ -9,6 +9,28 @@ enum class WordStatus {
     KNOWN,
     MASTERED
 }
+
+enum class ResultEnum {
+    INCORRECT,
+    CORRECT,
+    PARTIAL
+}
+
+data class TestChallenge(
+    val description: String,
+    val id: String
+)
+
+data class TestResult(
+    val result: ResultEnum,
+    val word: String,
+    val newStatus: WordStatus,
+    val oldStatus: WordStatus,
+)
+
+data class TestStatistics(
+    val available: Map<WordStatus, Int>,
+)
 data class WordResult(
     val word: String,
     val translation: String,

@@ -1,6 +1,9 @@
 package net.gask13.oghmai.network
 
 import net.gask13.oghmai.model.DescriptionRequest
+import net.gask13.oghmai.model.TestChallenge
+import net.gask13.oghmai.model.TestResult
+import net.gask13.oghmai.model.TestStatistics
 import net.gask13.oghmai.model.WordList
 import net.gask13.oghmai.model.WordResult
 import retrofit2.Response
@@ -28,4 +31,16 @@ interface ApiService {
 
     @PATCH("word/{word}")
     suspend fun undoDeleteWord(@Path("word") word: String, @Query("action") action: String = "undelete")
+
+    @GET("test")
+    suspend fun getAvailableTests(): TestStatistics
+
+    @GET("test/next")
+    suspend fun getNextTest(): Response<TestChallenge>
+
+    @PUT("test/{id}")
+    suspend fun submitChallengeGuess(
+        @Path("id") id: String,
+        @Query("guess") guess: String
+    ): TestResult
 }
