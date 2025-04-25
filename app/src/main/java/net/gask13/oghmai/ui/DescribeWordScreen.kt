@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -30,6 +31,7 @@ import net.gask13.oghmai.network.RetrofitInstance
 import net.gask13.oghmai.services.TextToSpeechWrapper
 import net.gask13.oghmai.ui.components.WordResultCard
 
+
 @Composable
 fun DescribeWordScreen(navController: NavController, textToSpeech: TextToSpeechWrapper) {
     var inputText by rememberSaveable { mutableStateOf("") }
@@ -40,6 +42,7 @@ fun DescribeWordScreen(navController: NavController, textToSpeech: TextToSpeechW
     val focusRequester = remember { FocusRequester() }
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val speechRecognizerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -139,6 +142,8 @@ fun DescribeWordScreen(navController: NavController, textToSpeech: TextToSpeechW
                     onClick = {
                         inputText = ""
                         results = emptyList()
+                        focusRequester.requestFocus()
+                        keyboardController?.show()
                     },
                     enabled = !isGuessing && !isSaving && results.isNotEmpty()
                 ) {

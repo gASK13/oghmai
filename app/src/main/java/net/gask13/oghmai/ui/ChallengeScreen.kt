@@ -3,31 +3,115 @@ package net.gask13.oghmai.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import net.gask13.oghmai.ui.components.WordStatusBadge
-import net.gask13.oghmai.network.RetrofitInstance
+import net.gask13.oghmai.model.ResultEnum
 import net.gask13.oghmai.model.TestChallenge
 import net.gask13.oghmai.model.TestResult
+import net.gask13.oghmai.model.WordStatus
+import net.gask13.oghmai.network.RetrofitInstance
+import net.gask13.oghmai.ui.components.WordStatusBadge
 import retrofit2.HttpException
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 
 @Composable
 fun ChallengeScreen(navController: NavController) {
     val coroutineScope = rememberCoroutineScope()
     var challenge by remember { mutableStateOf<TestChallenge?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
     var userInput by remember { mutableStateOf("") }
     var dialogState by remember { mutableStateOf<DialogState?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     LaunchedEffect(Unit) {
-        fetchNextChallenge(coroutineScope, { fetchedChallenge ->
+        fetchNextChallenge(coroutineScope, snackbarHostState) { fetchedChallenge ->
             challenge = fetchedChallenge
+            isLoading = false
             if (fetchedChallenge == null) {
                 dialogState = DialogState.NoMoreWords
+            } else {
+                focusRequester.requestFocus()
+                keyboardController?.show() // Ensure the keyboard opens
             }
-        })
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Description Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.3f)
+                .padding(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)) // Light blue background
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator()
+                } else {
+                    Text(
+                        text = challenge?.description ?: "",
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+        }
+
+        // Input and Submit Section
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedTextField(
+                value = userInput,
+                onValueChange = { userInput = it },
+                label = { Text("Your Answer") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester)
+            )
+            Button(
+                onClick = {
+                    coroutineScope.launch {
+                        try {
+                            val result = submitGuess(challenge!!.id, userInput)
+                            dialogState = DialogState.Result(
+                                result = result.result,
+                                word = result.word,
+                                status = result.newStatus
+                            )
+                        } catch (e: Exception) {
+                            snackbarHostState.showSnackbar(
+                                message = "Error submitting guess: ${e.message}",
+                                duration = SnackbarDuration.Short
+                            )
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading
+            ) {
+                Text("Submit")
+            }
+        }
     }
 
     if (dialogState == DialogState.NoMoreWords) {
@@ -43,70 +127,57 @@ fun ChallengeScreen(navController: NavController) {
         )
     }
 
-    challenge?.let { currentChallenge ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(currentChallenge.description, style = MaterialTheme.typography.bodyLarge)
-            OutlinedTextField(
-                value = userInput,
-                onValueChange = { userInput = it },
-                label = { Text("Your Answer") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Button(
-                onClick = {
-                    coroutineScope.launch {
-                        val result = submitGuess(currentChallenge.id, userInput)
-                        dialogState = DialogState.Result(
-                            correct = result.result == net.gask13.oghmai.model.ResultEnum.CORRECT,
-                            word = result.word,
-                            status = result.newStatus
-                        )
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Submit")
-            }
-        }
-    }
-
     (dialogState as? DialogState.Result)?.let { result ->
         AlertDialog(
             onDismissRequest = { dialogState = null },
             title = {
                 Text(
-                    if (result.correct) "Correct!"
-                    else "Incorrect"
+                    when {
+                        result.result == ResultEnum.CORRECT -> "Correct!"
+                        result.result == ResultEnum.PARTIAL -> "Close!"
+                        else -> "Incorrect"
+                    }
                 )
             },
             text = {
                 Column {
                     Text(
-                        if (result.correct)
-                            "You guessed '${result.word}' correctly!"
-                        else
-                            "Incorrect! The word was '${result.word}'."
+                        when {
+                            result.result == ResultEnum.CORRECT -> "You guessed '${result.word}' correctly!"
+                            result.result == ResultEnum.PARTIAL -> "This is not the word we're looking for, but you're close!"
+                            else -> "Incorrect! The word was '${result.word}'."
+                        }
                     )
-                    WordStatusBadge(wordStatus = result.status)
+                    if (result.result != ResultEnum.PARTIAL && result.status != null) {
+                        WordStatusBadge(wordStatus = result.status)
+                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    dialogState = null
-                    fetchNextChallenge(coroutineScope, { fetchedChallenge ->
-                        challenge = fetchedChallenge
-                        userInput = ""
-                        if (fetchedChallenge == null) {
-                            dialogState = DialogState.NoMoreWords
+                if (result.result == ResultEnum.PARTIAL) {
+                    TextButton(onClick = {
+                        dialogState = null
+                        userInput = "" // Clear input for the next guess
+                    }) {
+                        Text("Try Again")
+                    }
+                } else {
+                    TextButton(onClick = {
+                        dialogState = null
+                        isLoading = true
+                        fetchNextChallenge(coroutineScope, snackbarHostState) { fetchedChallenge ->
+                            challenge = fetchedChallenge
+                            userInput = ""
+                            isLoading = false
+                            if (fetchedChallenge == null) {
+                                dialogState = DialogState.NoMoreWords
+                            } else {
+                                focusRequester.requestFocus()
+                            }
                         }
-                    })
-                }) {
-                    Text("Next Test")
+                    }) {
+                        Text("Next Test")
+                    }
                 }
             },
             dismissButton = {
@@ -116,19 +187,47 @@ fun ChallengeScreen(navController: NavController) {
             }
         )
     }
+
+    // SnackbarHost positioned at the bottom of the screen
+    Box(modifier = Modifier.fillMaxSize()) {
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(16.dp)
+        )
+    }
 }
 
-private fun fetchNextChallenge(coroutineScope: CoroutineScope, onResult: (TestChallenge?) -> Unit) {
+private fun fetchNextChallenge(
+    coroutineScope: CoroutineScope,
+    snackbarHostState: SnackbarHostState,
+    onResult: (TestChallenge?) -> Unit
+) {
     coroutineScope.launch {
         try {
             val response = RetrofitInstance.apiService.getNextTest()
             if (response.isSuccessful) {
+                if (response.body() == null || response.code() == 204) {
+                    onResult(null)
+                }
                 onResult(response.body())
-            } else if (response.code() == 204) {
-                onResult(null)
+            } else {
+                snackbarHostState.showSnackbar(
+                    message = "Error loading next test: ${response.errorBody()?.string()}",
+                    duration = SnackbarDuration.Short
+                )
             }
         } catch (e: HttpException) {
-            onResult(null)
+            snackbarHostState.showSnackbar(
+                message = "Error loading next test: ${e.message}",
+                duration = SnackbarDuration.Short
+            )
+        } catch (e: Exception) {
+            snackbarHostState.showSnackbar(
+                message = "Unexpected error: ${e.message}",
+                duration = SnackbarDuration.Short
+            )
         }
     }
 }
@@ -140,9 +239,8 @@ private suspend fun submitGuess(id: String, guess: String): TestResult {
 sealed class DialogState {
     object NoMoreWords : DialogState()
     data class Result(
-        val correct: Boolean,
-        val word: String,
-        val status: net.gask13.oghmai.model.WordStatus
+        val result: ResultEnum,
+        val word: String?,
+        val status: WordStatus?
     ) : DialogState()
 }
-
