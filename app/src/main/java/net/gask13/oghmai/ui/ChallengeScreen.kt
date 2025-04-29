@@ -1,5 +1,6 @@
 package net.gask13.oghmai.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,9 +22,12 @@ import retrofit2.HttpException
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
+import net.gask13.oghmai.R
+import net.gask13.oghmai.services.TextToSpeechWrapper
 
 @Composable
-fun ChallengeScreen(navController: NavController) {
+fun ChallengeScreen(navController: NavController, textToSpeech: TextToSpeechWrapper) {
     val coroutineScope = rememberCoroutineScope()
     var challenge by remember { mutableStateOf<TestChallenge?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -32,6 +36,7 @@ fun ChallengeScreen(navController: NavController) {
     val snackbarHostState = remember { SnackbarHostState() }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+    var isSubmitting by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         fetchNextChallenge(coroutineScope, snackbarHostState) { fetchedChallenge ->
@@ -58,16 +63,33 @@ fun ChallengeScreen(navController: NavController) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
+                    .padding(16.dp)
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator()
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 } else {
                     Text(
                         text = challenge?.description ?: "",
                         style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                    Icon(
+                        painter = painterResource(
+                            id = if (textToSpeech.storedUtteranceId == challenge?.description) R.drawable.ic_pause else R.drawable.ic_speaker
+                        ),
+                        contentDescription = if (textToSpeech.storedUtteranceId == challenge?.description) "Pause Speech" else "Speak Example",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .size(48.dp) // Increased size
+                            .align(Alignment.BottomEnd) // Positioned in the bottom right corner
+                            .clickable {
+                                if (textToSpeech.storedUtteranceId == challenge?.description) {
+                                    textToSpeech.stop()
+                                } else {
+                                    textToSpeech.speak(challenge!!.description, challenge!!.description)
+                                }
+                            }
+                            .padding(8.dp) // Padding for better touch target
                     )
                 }
             }
@@ -90,6 +112,7 @@ fun ChallengeScreen(navController: NavController) {
             )
             Button(
                 onClick = {
+                    isSubmitting = true
                     coroutineScope.launch {
                         try {
                             val result = submitGuess(challenge!!.id, userInput)
@@ -103,13 +126,22 @@ fun ChallengeScreen(navController: NavController) {
                                 message = "Error submitting guess: ${e.message}",
                                 duration = SnackbarDuration.Short
                             )
+                        } finally {
+                            isSubmitting = false
                         }
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading
+                enabled = !isLoading && !isSubmitting
             ) {
-                Text("Submit")
+                if (isSubmitting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Submit")
+                }
             }
         }
     }

@@ -21,7 +21,7 @@ interface ApiService {
     suspend fun saveWord(@Body word: WordResult)
 
     @GET("words")
-    suspend fun getWords(): WordList
+    suspend fun getWords(@Query("status") status: String? = null, @Query("failed_last_test") failedLastTest: Boolean? = null, @Query("contains") contains: String? = null ): WordList
 
     @GET("word/{word}")
     suspend fun getWord(@Path("word") word: String): WordResult

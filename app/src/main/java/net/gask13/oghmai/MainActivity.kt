@@ -158,7 +158,7 @@ fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWr
             SettingsScreen()
         }
         composable("testWords") {
-            ChallengeScreen(navController)
+            ChallengeScreen(navController, textToSpeech)
         }
     }
 }
