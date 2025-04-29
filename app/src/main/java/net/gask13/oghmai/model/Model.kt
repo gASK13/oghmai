@@ -42,11 +42,17 @@ data class WordResult(
     var status: WordStatus,
 )
 
+data class WordItem(
+    val word: String,
+    val testResults: List<Boolean>,
+    var status: WordStatus,
+)
+
 data class DescriptionRequest(
     val description: String,
     val exclusions: List<String>? = null
 )
 
 data class WordList(
-    val words: List<String>
+    val words: List<WordItem>
 )

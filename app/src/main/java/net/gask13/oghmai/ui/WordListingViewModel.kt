@@ -9,11 +9,12 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import net.gask13.oghmai.model.WordItem
 import net.gask13.oghmai.network.RetrofitInstance
 
 class WordListingViewModel(application: Application) : AndroidViewModel(application) {
-    private val _words = MutableStateFlow<List<String>>(emptyList())
-    val words: StateFlow<List<String>> = _words
+    private val _words = MutableStateFlow<List<WordItem>>(emptyList())
+    val words: StateFlow<List<WordItem>> = _words
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading
@@ -31,10 +32,10 @@ class WordListingViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    fun deleteWord(word: String) {
+    fun deleteWord(word: WordItem) {
         viewModelScope.launch {
             try {
-                RetrofitInstance.apiService.deleteWord(word)
+                RetrofitInstance.apiService.deleteWord(word.word)
                 // Update the list locally after successful deletion
                 _words.value = _words.value.filter { it != word }
             } catch (e: Exception) {
@@ -43,10 +44,10 @@ class WordListingViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    fun undoDeleteWord(word: String, position: Int) {
+    fun undoDeleteWord(word: WordItem, position: Int) {
         viewModelScope.launch {
             try {
-                RetrofitInstance.apiService.undoDeleteWord(word)
+                RetrofitInstance.apiService.undoDeleteWord(word.word)
                 // Re-add the word to the list
                 val currentList = _words.value.toMutableList()
                 currentList.add(position, word)

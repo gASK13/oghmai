@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import net.gask13.oghmai.model.WordItem
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -27,7 +28,7 @@ fun WordListingScreen(navController: NavHostController, viewModel: WordListingVi
     val words by viewModel.words.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    var recentlyDeletedWord by remember { mutableStateOf<Pair<String, Int>?>(null) }
+    var recentlyDeletedWord by remember { mutableStateOf<Pair<WordItem, Int>?>(null) }
     var showSnackbar by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -42,7 +43,7 @@ fun WordListingScreen(navController: NavHostController, viewModel: WordListingVi
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                itemsIndexed(words, key = { _, word -> word }) { index, word ->
+                itemsIndexed(words, key = { _, word -> word.word }) { index, word -> // Use word.word as the key
                     val isActionTriggered = remember { mutableStateOf(false) }
                     val dismissState = rememberSwipeToDismissBoxState(
                         confirmValueChange = { dismissValue ->
@@ -84,9 +85,7 @@ fun WordListingScreen(navController: NavHostController, viewModel: WordListingVi
                                     .fillMaxWidth()
                                     .clickable(enabled = !isDismissed) {
                                         Log.d("Navigation", "Navigating to word detail for $word")
-                                        navController.navigate("wordDetail/$word") {
-                                            // Pass textToSpeech to WordDetailScreen
-                                        }
+                                        navController.navigate("wordDetail/${word.word}")
                                     },
                                 shape = RoundedCornerShape(32.dp),
                                 colors = CardDefaults.cardColors(
@@ -94,7 +93,7 @@ fun WordListingScreen(navController: NavHostController, viewModel: WordListingVi
                                 )
                             ) {
                                 Text(
-                                    text = word,
+                                    text = word.word,
                                     modifier = Modifier.padding(16.dp),
                                     style = MaterialTheme.typography.bodyLarge.copy(
                                         color = Color.White,
@@ -112,7 +111,7 @@ fun WordListingScreen(navController: NavHostController, viewModel: WordListingVi
         if (showSnackbar && recentlyDeletedWord != null) {
             LaunchedEffect(snackbarHostState, recentlyDeletedWord) {
                 val result = snackbarHostState.showSnackbar(
-                    message = "Deleted ${recentlyDeletedWord!!.first}",
+                    message = "Deleted ${recentlyDeletedWord!!.first.word}",
                     actionLabel = "Undo",
                     duration = SnackbarDuration.Short,
                     withDismissAction = true,

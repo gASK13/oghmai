@@ -20,6 +20,7 @@ interface ApiService {
     @POST("save-word")
     suspend fun saveWord(@Body word: WordResult)
 
+    // Status is a comma-delimited list of WordStatus values
     @GET("words")
     suspend fun getWords(@Query("status") status: String? = null, @Query("failed_last_test") failedLastTest: Boolean? = null, @Query("contains") contains: String? = null ): WordList
 
