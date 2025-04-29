@@ -193,6 +193,7 @@ fun WordListingScreen(navController: NavHostController, viewModel: WordListingVi
 
                         SwipeToDismissBox(
                             state = dismissState,
+                            enableDismissFromEndToStart = false,
                             backgroundContent = {
                                 Box(
                                     modifier = Modifier
