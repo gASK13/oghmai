@@ -17,7 +17,7 @@ interface ApiService {
     @DELETE("words")
     suspend fun purgeWords()
 
-    @POST("save-word")
+    @POST("word")
     suspend fun saveWord(@Body word: WordResult)
 
     // Status is a comma-delimited list of WordStatus values
