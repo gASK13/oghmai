@@ -1,6 +1,5 @@
 package net.gask13.oghmai
 
-import DescribeWordScreen
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -15,8 +14,15 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -25,8 +31,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import net.gask13.oghmai.services.TextToSpeechWrapper
 import net.gask13.oghmai.ui.WordDetailScreen
+import net.gask13.oghmai.ui.WordDiscoveryScreen
 import net.gask13.oghmai.ui.WordListingScreen
 import net.gask13.oghmai.ui.ChallengeScreen
+import net.gask13.oghmai.ui.components.MenuButton
 import java.util.*
 
 class MainActivity : ComponentActivity() {
@@ -70,27 +78,24 @@ fun MainMenuScreen(onNavigate: (String) -> Unit) {
             modifier = Modifier
                 .padding(padding)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            Button(onClick = { onNavigate("describeWord") }) {
-                Text("Describe Word")
-            }
-
-            Button(onClick = { onNavigate("listWords") }) {
-                Text("List Words")
-            }
-
-            Button(onClick = { onNavigate("testWords") }) {
-                Text("Test Knowledge")
-            }
+            MenuButton(
+                icon = { Icon(Icons.Default.Search, contentDescription = "") },
+                name = "Describe Word",
+                onClick = { onNavigate("describeWord") }
+            )
+            MenuButton(
+                icon = { Icon(Icons.Default.Menu, contentDescription = "") },
+                name = "List Words",
+                onClick = { onNavigate("listWords") }
+            )
+            MenuButton(
+                icon = { Icon(Icons.Default.Edit, contentDescription = "") },
+                name = "Test Knowledge",
+                onClick = { onNavigate("testWords") }
+            )
         }
-    }
-}
-
-@Composable
-fun DisabledButton(text: String) {
-    Button(onClick = {}, enabled = false) {
-        Text("$text (Not Implemented)")
     }
 }
 
@@ -148,7 +153,7 @@ fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWr
                 }
             }
         }
-        composable("describeWord") { DescribeWordScreen(navController, textToSpeech) }
+        composable("describeWord") { WordDiscoveryScreen(navController, textToSpeech) }
         composable("listWords") { WordListingScreen(navController) }
         composable("wordDetail/{word}") { backStackEntry ->
             val word = backStackEntry.arguments?.getString("word") ?: ""
@@ -159,6 +164,10 @@ fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWr
         }
         composable("testWords") {
             ChallengeScreen(navController, textToSpeech)
+        }
+        composable("discoverWord/{word}") { backStackEntry ->
+            val word = backStackEntry.arguments?.getString("word") ?: ""
+            WordDiscoveryScreen(navController, textToSpeech, word)
         }
     }
 }

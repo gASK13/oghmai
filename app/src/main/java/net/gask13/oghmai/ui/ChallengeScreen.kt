@@ -1,52 +1,89 @@
 package net.gask13.oghmai.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import net.gask13.oghmai.R
 import net.gask13.oghmai.model.ResultEnum
 import net.gask13.oghmai.model.TestChallenge
 import net.gask13.oghmai.model.TestResult
 import net.gask13.oghmai.model.WordStatus
 import net.gask13.oghmai.network.RetrofitInstance
+import net.gask13.oghmai.services.TextToSpeechWrapper
 import net.gask13.oghmai.ui.components.WordStatusBadge
 import retrofit2.HttpException
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.res.painterResource
-import net.gask13.oghmai.R
-import net.gask13.oghmai.services.TextToSpeechWrapper
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 
+// Custom Saver for TestChallenge
+private val testChallengeSaver = Saver<TestChallenge?, List<String?>>(
+    save = { challenge ->
+        if (challenge == null) {
+            listOf(null, null)
+        } else {
+            listOf(challenge.description, challenge.id)
+        }
+    },
+    restore = { savedList ->
+        if (savedList[0] == null || savedList[1] == null) {
+            null
+        } else {
+            TestChallenge(
+                description = savedList[0]!!,
+                id = savedList[1]!!
+            )
+        }
+    }
+)
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ChallengeScreen(navController: NavController, textToSpeech: TextToSpeechWrapper) {
     val coroutineScope = rememberCoroutineScope()
-    var challenge by remember { mutableStateOf<TestChallenge?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
-    var userInput by remember { mutableStateOf("") }
-    var dialogState by remember { mutableStateOf<DialogState?>(null) }
+    var challenge by rememberSaveable(stateSaver = testChallengeSaver) { mutableStateOf<TestChallenge?>(null) }
+    var isLoading by rememberSaveable { mutableStateOf(true) }
+    var userInput by rememberSaveable { mutableStateOf("") }
+    var resultState by remember { mutableStateOf<TestResult?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
-    var isSubmitting by remember { mutableStateOf(false) }
+    var isSubmitting by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        fetchNextChallenge(coroutineScope, snackbarHostState) { fetchedChallenge ->
-            challenge = fetchedChallenge
-            isLoading = false
-            if (fetchedChallenge == null) {
-                dialogState = DialogState.NoMoreWords
-            } else {
-                focusRequester.requestFocus()
-                keyboardController?.show() // Ensure the keyboard opens
+    // Flag to track if we've already loaded a challenge
+    var hasLoadedChallenge by rememberSaveable { mutableStateOf(false) }
+
+    // Only load a challenge if we haven't loaded one yet
+    LaunchedEffect(true) {
+        if (!hasLoadedChallenge) {
+            fetchNextChallenge(coroutineScope, snackbarHostState) { fetchedChallenge ->
+                challenge = fetchedChallenge
+                isLoading = false
+                hasLoadedChallenge = true
+                if (fetchedChallenge == null) {
+                    resultState = null // No more challenges
+                } else {
+                    focusRequester.requestFocus()
+                    keyboardController?.show() // Ensure the keyboard opens
+                }
             }
         }
     }
@@ -56,7 +93,7 @@ fun ChallengeScreen(navController: NavController, textToSpeech: TextToSpeechWrap
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.3f)
+                .fillMaxHeight(0.5f)
                 .padding(16.dp),
             colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)) // Light blue background
         ) {
@@ -68,29 +105,101 @@ fun ChallengeScreen(navController: NavController, textToSpeech: TextToSpeechWrap
                 if (isLoading) {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 } else {
-                    Text(
-                        text = challenge?.description ?: "",
-                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                    Icon(
-                        painter = painterResource(
-                            id = if (textToSpeech.storedUtteranceId == challenge?.description) R.drawable.ic_pause else R.drawable.ic_speaker
-                        ),
-                        contentDescription = if (textToSpeech.storedUtteranceId == challenge?.description) "Pause Speech" else "Speak Example",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .size(48.dp) // Increased size
-                            .align(Alignment.BottomEnd) // Positioned in the bottom right corner
-                            .clickable {
-                                if (textToSpeech.storedUtteranceId == challenge?.description) {
-                                    textToSpeech.stop()
-                                } else {
-                                    textToSpeech.speak(challenge!!.description, challenge!!.description)
+                    if (challenge == null) {
+                        Text(
+                            text = "No more challenges available today!",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    } else if (resultState != null) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = when (resultState?.result) {
+                                    ResultEnum.CORRECT -> "Correct! You guessed '${resultState?.word}'!"
+                                    ResultEnum.INCORRECT -> "Incorrect! The word was '${resultState?.word}'."
+                                    else -> ""
+                                },
+                                fontSize = 18.sp, // Increased font size
+                                fontWeight = FontWeight.Bold, // Made text bold
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (resultState?.result == ResultEnum.CORRECT) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+                            )
+                            resultState?.newStatus.let { status ->
+                                Spacer(modifier = Modifier.height(8.dp))
+                                WordStatusBadge(wordStatus = status!!)
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = {
+                                    isLoading = true
+                                    hasLoadedChallenge = false // Reset the flag to allow loading a new challenge
+                                    fetchNextChallenge(coroutineScope, snackbarHostState) { fetchedChallenge ->
+                                        challenge = fetchedChallenge
+                                        userInput = ""
+                                        isLoading = false
+                                        hasLoadedChallenge = true // Set the flag to true after loading
+                                        resultState = null
+                                    }
+                                },
+                                modifier = Modifier
+                                    .padding(8.dp)
+                            ) {
+                                Text("Next Challenge")
+                            }
+                        }
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState()) // Make content scrollable
+                        ) {
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                challenge!!.description.split(" ").forEach { word ->
+                                    Text(
+                                        text = "$word ",
+                                        fontSize = 18.sp, // Increased font size
+                                        fontWeight = FontWeight.Bold, // Made text bold
+                                        modifier = Modifier.pointerInput(Unit) {
+                                            detectTapGestures(onLongPress = {
+                                                navController.navigate("discoverWord/$word")
+                                            })
+                                        }
+                                    )
                                 }
                             }
-                            .padding(8.dp) // Padding for better touch target
-                    )
+                        }
+                        Text(
+                            text = "Hold on a word to explain or save it",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(8.dp)
+                        )
+                        Icon(
+                            painter = painterResource(
+                                id = if (textToSpeech.storedUtteranceId == challenge?.description) R.drawable.ic_pause else R.drawable.ic_speaker
+                            ),
+                            contentDescription = if (textToSpeech.storedUtteranceId == challenge?.description) "Pause Speech" else "Speak Example",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .size(48.dp) // Increased size
+                                .align(Alignment.BottomEnd) // Positioned in the bottom right corner
+                                .clickable {
+                                    if (textToSpeech.storedUtteranceId == challenge?.description) {
+                                        textToSpeech.stop()
+                                    } else {
+                                        textToSpeech.speak(challenge!!.description, challenge!!.description)
+                                    }
+                                }
+                                .padding(8.dp) // Padding for better touch target
+                        )
+                    }
                 }
             }
         }
@@ -116,11 +225,14 @@ fun ChallengeScreen(navController: NavController, textToSpeech: TextToSpeechWrap
                     coroutineScope.launch {
                         try {
                             val result = submitGuess(challenge!!.id, userInput)
-                            dialogState = DialogState.Result(
-                                result = result.result,
-                                word = result.word,
-                                status = result.newStatus
-                            )
+                            if (result.result == ResultEnum.PARTIAL) {
+                                snackbarHostState.showSnackbar(
+                                    message = "This is not the word you're looking for, but you're close!",
+                                    duration = SnackbarDuration.Short
+                                )
+                            } else {
+                                resultState = result
+                            }
                         } catch (e: Exception) {
                             snackbarHostState.showSnackbar(
                                 message = "Error submitting guess: ${e.message}",
@@ -144,80 +256,6 @@ fun ChallengeScreen(navController: NavController, textToSpeech: TextToSpeechWrap
                 }
             }
         }
-    }
-
-    if (dialogState == DialogState.NoMoreWords) {
-        AlertDialog(
-            onDismissRequest = { navController.navigate("main") },
-            title = { Text("No more words") },
-            text = { Text("There are no more challenges available.") },
-            confirmButton = {
-                TextButton(onClick = { navController.navigate("main") }) {
-                    Text("Back to Menu")
-                }
-            }
-        )
-    }
-
-    (dialogState as? DialogState.Result)?.let { result ->
-        AlertDialog(
-            onDismissRequest = { dialogState = null },
-            title = {
-                Text(
-                    when {
-                        result.result == ResultEnum.CORRECT -> "Correct!"
-                        result.result == ResultEnum.PARTIAL -> "Close!"
-                        else -> "Incorrect"
-                    }
-                )
-            },
-            text = {
-                Column {
-                    Text(
-                        when {
-                            result.result == ResultEnum.CORRECT -> "You guessed '${result.word}' correctly!"
-                            result.result == ResultEnum.PARTIAL -> "This is not the word we're looking for, but you're close!"
-                            else -> "Incorrect! The word was '${result.word}'."
-                        }
-                    )
-                    if (result.result != ResultEnum.PARTIAL && result.status != null) {
-                        WordStatusBadge(wordStatus = result.status)
-                    }
-                }
-            },
-            confirmButton = {
-                if (result.result == ResultEnum.PARTIAL) {
-                    TextButton(onClick = {
-                        dialogState = null
-                        userInput = "" // Clear input for the next guess
-                    }) {
-                        Text("Try Again")
-                    }
-                } else {
-                    TextButton(onClick = {
-                        dialogState = null
-                        isLoading = true
-                        fetchNextChallenge(coroutineScope, snackbarHostState) { fetchedChallenge ->
-                            challenge = fetchedChallenge
-                            userInput = ""
-                            isLoading = false
-                            if (fetchedChallenge == null) {
-                                dialogState = DialogState.NoMoreWords
-                            } else {
-                                focusRequester.requestFocus()
-                            }
-                        }
-                    }) {
-                        Text("Next Test")
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { navController.navigate("main") }) {
-                    Text("Back to Menu")
-                }
-            }
-        )
     }
 
     // SnackbarHost positioned at the bottom of the screen
@@ -268,11 +306,3 @@ private suspend fun submitGuess(id: String, guess: String): TestResult {
     return RetrofitInstance.apiService.submitChallengeGuess(id, guess)
 }
 
-sealed class DialogState {
-    object NoMoreWords : DialogState()
-    data class Result(
-        val result: ResultEnum,
-        val word: String?,
-        val status: WordStatus?
-    ) : DialogState()
-}
