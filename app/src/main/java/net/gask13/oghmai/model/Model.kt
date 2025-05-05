@@ -24,6 +24,7 @@ data class TestChallenge(
 data class TestResult(
     val result: ResultEnum,
     val word: String,
+    val suggestion: String,
     val newStatus: WordStatus,
     val oldStatus: WordStatus,
 )

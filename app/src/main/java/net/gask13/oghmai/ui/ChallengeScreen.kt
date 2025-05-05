@@ -89,7 +89,6 @@ fun ChallengeScreen(navController: NavController, textToSpeech: TextToSpeechWrap
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Description Card
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -138,11 +137,13 @@ fun ChallengeScreen(navController: NavController, textToSpeech: TextToSpeechWrap
                                     isLoading = true
                                     hasLoadedChallenge = false // Reset the flag to allow loading a new challenge
                                     fetchNextChallenge(coroutineScope, snackbarHostState) { fetchedChallenge ->
+                                        resultState = null
                                         challenge = fetchedChallenge
-                                        userInput = ""
                                         isLoading = false
                                         hasLoadedChallenge = true // Set the flag to true after loading
-                                        resultState = null
+                                        userInput = ""
+                                        focusRequester.requestFocus()
+                                        keyboardController?.show() // Ensure the keyboard opens
                                     }
                                 },
                                 modifier = Modifier
@@ -155,50 +156,63 @@ fun ChallengeScreen(navController: NavController, textToSpeech: TextToSpeechWrap
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .verticalScroll(rememberScrollState()) // Make content scrollable
                         ) {
-                            FlowRow(
-                                modifier = Modifier.fillMaxWidth()
+                            // Confine the text to the upper part of the card
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f) // Take up available vertical space
+                                    .verticalScroll(rememberScrollState()) // Make content scrollable
                             ) {
-                                challenge!!.description.split(" ").forEach { word ->
-                                    Text(
-                                        text = "$word ",
-                                        fontSize = 18.sp, // Increased font size
-                                        fontWeight = FontWeight.Bold, // Made text bold
-                                        modifier = Modifier.pointerInput(Unit) {
-                                            detectTapGestures(onLongPress = {
-                                                navController.navigate("discoverWord/$word")
-                                            })
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                        Text(
-                            text = "Hold on a word to explain or save it",
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .padding(8.dp)
-                        )
-                        Icon(
-                            painter = painterResource(
-                                id = if (textToSpeech.storedUtteranceId == challenge?.description) R.drawable.ic_pause else R.drawable.ic_speaker
-                            ),
-                            contentDescription = if (textToSpeech.storedUtteranceId == challenge?.description) "Pause Speech" else "Speak Example",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .size(48.dp) // Increased size
-                                .align(Alignment.BottomEnd) // Positioned in the bottom right corner
-                                .clickable {
-                                    if (textToSpeech.storedUtteranceId == challenge?.description) {
-                                        textToSpeech.stop()
-                                    } else {
-                                        textToSpeech.speak(challenge!!.description, challenge!!.description)
+                                Column {
+                                    challenge!!.description.split("\n").forEach { paragraph ->
+                                        Text(
+                                            text = paragraph,
+                                            fontSize = 18.sp, // Increased font size
+                                            fontWeight = FontWeight.Bold, // Made text bold
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(bottom = 8.dp) // Add spacing between paragraphs
+                                                .pointerInput(Unit) {
+                                                    detectTapGestures(onLongPress = {
+                                                        navController.navigate("discoverWord/$paragraph")
+                                                    })
+                                                }
+                                        )
                                     }
                                 }
-                                .padding(8.dp) // Padding for better touch target
-                        )
+                            }
+                            // Bottom section with small text and icon
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Hold on a word to explain or save it",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(8.dp)
+                                )
+                                Icon(
+                                    painter = painterResource(
+                                        id = if (textToSpeech.storedUtteranceId == challenge?.description) R.drawable.ic_pause else R.drawable.ic_speaker
+                                    ),
+                                    contentDescription = if (textToSpeech.storedUtteranceId == challenge?.description) "Pause Speech" else "Speak Example",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .size(48.dp) // Increased size
+                                        .clickable {
+                                            if (textToSpeech.storedUtteranceId == challenge?.description) {
+                                                textToSpeech.stop()
+                                            } else {
+                                                textToSpeech.speak(challenge!!.description, challenge!!.description)
+                                            }
+                                        }
+                                        .padding(8.dp) // Padding for better touch target
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -226,12 +240,20 @@ fun ChallengeScreen(navController: NavController, textToSpeech: TextToSpeechWrap
                         try {
                             val result = submitGuess(challenge!!.id, userInput)
                             if (result.result == ResultEnum.PARTIAL) {
-                                snackbarHostState.showSnackbar(
-                                    message = "This is not the word you're looking for, but you're close!",
-                                    duration = SnackbarDuration.Short
+                                challenge = challenge?.copy(
+                                    description = "${challenge!!.description}\n${result.suggestion}"
                                 )
+                                snackbarHostState.showSnackbar(
+                                    message = "This is not the word we're looking for, but you're close!",
+                                    duration = SnackbarDuration.Short,
+                                    withDismissAction = true
+                                )
+                                userInput = ""
+                                focusRequester.requestFocus()
+                                keyboardController?.show() // Ensure the keyboard opens
                             } else {
                                 resultState = result
+                                userInput = ""
                             }
                         } catch (e: Exception) {
                             snackbarHostState.showSnackbar(
@@ -244,7 +266,7 @@ fun ChallengeScreen(navController: NavController, textToSpeech: TextToSpeechWrap
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading && !isSubmitting
+                enabled = !isLoading && !isSubmitting && resultState == null
             ) {
                 if (isSubmitting) {
                     CircularProgressIndicator(
@@ -305,4 +327,3 @@ private fun fetchNextChallenge(
 private suspend fun submitGuess(id: String, guess: String): TestResult {
     return RetrofitInstance.apiService.submitChallengeGuess(id, guess)
 }
-
