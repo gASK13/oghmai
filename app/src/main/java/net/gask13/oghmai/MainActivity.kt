@@ -9,7 +9,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
@@ -17,26 +19,28 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import net.gask13.oghmai.auth.AuthManager
+import net.gask13.oghmai.network.RetrofitInstance
 import net.gask13.oghmai.services.TextToSpeechWrapper
-import net.gask13.oghmai.ui.ChallengeScreen
-import net.gask13.oghmai.ui.WordDetailScreen
-import net.gask13.oghmai.ui.WordDiscoveryScreen
-import net.gask13.oghmai.ui.WordListingScreen
+import net.gask13.oghmai.ui.*
 import net.gask13.oghmai.ui.components.MenuButton
 import net.gask13.oghmai.ui.components.OptionMenuItem
 import net.gask13.oghmai.ui.components.ScaffoldWithTopBar
 
 class MainActivity : ComponentActivity() {
     private lateinit var textToSpeech: TextToSpeechWrapper
+    private lateinit var authManager: AuthManager
+    private val coroutineScope = CoroutineScope(Dispatchers.Main)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,10 +48,27 @@ class MainActivity : ComponentActivity() {
         textToSpeech = TextToSpeechWrapper()
         textToSpeech.initializeTextToSpeech(this)
 
+        // Initialize AuthManager
+        authManager = AuthManager.getInstance(this)
+
+        // Initialize AWS Mobile Client and RetrofitInstance
+        coroutineScope.launch {
+            try {
+                authManager.initialize()
+                Log.d("MainActivity", "AWS Mobile Client initialized")
+
+                // Initialize RetrofitInstance with AuthManager
+                RetrofitInstance.initialize(authManager)
+                Log.d("MainActivity", "RetrofitInstance initialized with AuthManager")
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error initializing AWS Mobile Client", e)
+            }
+        }
+
         setContent {
             val navController = rememberNavController()
 
-            OghmAINavHost(navController, textToSpeech)
+            OghmAINavHost(navController, textToSpeech, authManager)
         }
     }
 
@@ -97,25 +118,17 @@ fun MainMenuScreen(onNavigate: (String) -> Unit) {
     }
 }
 
-@Composable
-fun SettingsScreen(
-    version: String = "v0.1-dev",
-    user: String = "test",
-    language: String = "Italian"
-) {
-    Column(modifier = Modifier.padding(16.dp)) {
-        Text("Settings", style = MaterialTheme.typography.headlineSmall)
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Version: $version")
-        Text("Username: $user")
-        Text("Language: $language")
-        Spacer(modifier = Modifier.height(16.dp))
-    }
-}
+// SettingsScreen moved to a separate file in ui package
 
 @Composable
-fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWrapper) {
-    NavHost(navController, startDestination = "main",
+fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWrapper, authManager: AuthManager) {
+    // Check if a user is authenticated
+    var isAuthenticated by remember { mutableStateOf(authManager.isSignedIn()) }
+
+    // Determine the start destination based on authentication status
+    val startDestination = if (isAuthenticated) "main" else "login"
+
+    NavHost(navController, startDestination = startDestination,
         enterTransition = {
             slideInHorizontally(
                 initialOffsetX = { fullWidth -> fullWidth }, // Starts off-screen to the right
@@ -140,7 +153,19 @@ fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWr
                 animationSpec = tween(durationMillis = 500)
             ) + fadeOut(animationSpec = tween(durationMillis = 300))
         }) {
+        composable("login") {
+            LoginScreen(navController, authManager)
+        }
         composable("main") {
+            // Check authentication status when navigating to the main screen
+            LaunchedEffect(Unit) {
+                if (!authManager.isSignedIn()) {
+                    navController.navigate("login") {
+                        popUpTo("main") { inclusive = true }
+                    }
+                }
+            }
+
             MainMenuScreen { destination ->
                 navController.navigate(destination) {
                     // Clear the back stack when navigating to the main menu
@@ -158,7 +183,7 @@ fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWr
             WordDetailScreen(word, navController,  textToSpeech)
         }
         composable("settings") {
-            SettingsScreen()
+            SettingsScreen(navController, authManager)
         }
         composable("testWords") {
             ChallengeScreen(navController, textToSpeech)

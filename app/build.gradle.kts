@@ -31,12 +31,18 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "API_KEY", "\"${localProps.getProperty("api.key")}\"")
             buildConfigField("String", "API_ENDPOINT", "\"${localProps.getProperty("api.endpoint")}\"")
+            buildConfigField("String", "COGNITO_CLIENT_ID", "\"${localProps.getProperty("cognito.client.id")}\"")
+            buildConfigField("String", "COGNITO_POOL_ID", "\"${localProps.getProperty("cognito.pool.id")}\"")
+            buildConfigField("String", "COGNITO_REGION", "\"${localProps.getProperty("cognito.region")}\"")
         }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            buildConfigField("String", "API_ENDPOINT", "\"${localProps.getProperty("api.endpoint")}\"")
+            buildConfigField("String", "COGNITO_CLIENT_ID", "\"${localProps.getProperty("cognito.client.id")}\"")
+            buildConfigField("String", "COGNITO_POOL_ID", "\"${localProps.getProperty("cognito.pool.id")}\"")
+            buildConfigField("String", "COGNITO_REGION", "\"${localProps.getProperty("cognito.region")}\"")
         }
     }
     compileOptions {
@@ -81,4 +87,9 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
     implementation(libs.logging.interceptor)
+
+    // AWS Cognito dependencies
+    implementation(libs.aws.auth.cognito)
+    implementation(libs.aws.android.sdk.cognitoidentityprovider)
+    implementation(libs.aws.android.sdk.mobile.client)
 }
