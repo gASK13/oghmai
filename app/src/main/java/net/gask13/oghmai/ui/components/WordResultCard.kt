@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -21,7 +19,6 @@ import net.gask13.oghmai.R
 import net.gask13.oghmai.model.WordResult
 import net.gask13.oghmai.model.WordStatus
 import net.gask13.oghmai.services.TextToSpeechWrapper
-import net.gask13.oghmai.ui.components.WordStatusBadge
 
 @Composable
 fun WordResultCard(

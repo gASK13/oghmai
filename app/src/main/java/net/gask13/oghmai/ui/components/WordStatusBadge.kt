@@ -35,14 +35,14 @@ fun WordStatusBadge(wordStatus: WordStatus, modifier: Modifier = Modifier) {
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = MaterialTheme.colorScheme.onSurface, // Changed to default text color
+            tint = MaterialTheme.colorScheme.onSurface, // Changed to a default text color
             modifier = Modifier.size(20.dp) // Slightly increased icon size for better visibility
         )
         Spacer(modifier = Modifier.width(8.dp)) // Adjusted spacing for button-like layout
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium, // Adjusted typography for better readability
-            color = MaterialTheme.colorScheme.onSurface // Changed to default text color
+            color = MaterialTheme.colorScheme.onSurface // Changed to a default text color
         )
     }
 }

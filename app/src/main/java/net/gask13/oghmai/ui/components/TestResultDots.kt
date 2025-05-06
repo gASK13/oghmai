@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 /**
- * A composable that displays a row of dots representing test results.
+ * Composable that displays a row of dots representing test results.
  * Green dots represent correct answers, red dots represent incorrect answers.
  *
  * @param testResults List of boolean values representing test results (true = correct, false = incorrect)

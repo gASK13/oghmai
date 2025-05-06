@@ -16,6 +16,11 @@ enum class ResultEnum {
     PARTIAL
 }
 
+enum class WordActionEnum {
+    UNDELETE,
+    RESET
+}
+
 data class TestChallenge(
     val description: String,
     val id: String

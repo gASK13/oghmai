@@ -4,6 +4,7 @@ import net.gask13.oghmai.model.DescriptionRequest
 import net.gask13.oghmai.model.TestChallenge
 import net.gask13.oghmai.model.TestResult
 import net.gask13.oghmai.model.TestStatistics
+import net.gask13.oghmai.model.WordActionEnum
 import net.gask13.oghmai.model.WordList
 import net.gask13.oghmai.model.WordResult
 import retrofit2.Response
@@ -31,7 +32,10 @@ interface ApiService {
     suspend fun deleteWord(@Path("word") word: String)
 
     @PATCH("word/{word}")
-    suspend fun undoDeleteWord(@Path("word") word: String, @Query("action") action: String = "undelete")
+    suspend fun patchWord(@Path("word") word: String, @Query("action") action: WordActionEnum)
+
+    @PATCH("words")
+    suspend fun patchWords(@Query("action") action: WordActionEnum)
 
     @GET("test")
     suspend fun getAvailableTests(): TestStatistics

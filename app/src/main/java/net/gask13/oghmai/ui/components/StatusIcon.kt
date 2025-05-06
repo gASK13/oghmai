@@ -15,7 +15,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import net.gask13.oghmai.model.WordStatus
 
 /**
- * A composable that displays an icon representing a word status.
+ * Composable that displays an icon representing a word status.
  * This is a simplified version of WordStatusBadge without the text label.
  *
  * @param wordStatus The status of the word

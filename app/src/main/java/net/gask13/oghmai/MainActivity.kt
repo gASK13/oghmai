@@ -1,8 +1,6 @@
 package net.gask13.oghmai
 
 import android.os.Bundle
-import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -13,16 +11,15 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -30,12 +27,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import net.gask13.oghmai.services.TextToSpeechWrapper
+import net.gask13.oghmai.ui.ChallengeScreen
 import net.gask13.oghmai.ui.WordDetailScreen
 import net.gask13.oghmai.ui.WordDiscoveryScreen
 import net.gask13.oghmai.ui.WordListingScreen
-import net.gask13.oghmai.ui.ChallengeScreen
 import net.gask13.oghmai.ui.components.MenuButton
-import java.util.*
+import net.gask13.oghmai.ui.components.OptionMenuItem
+import net.gask13.oghmai.ui.components.ScaffoldWithTopBar
 
 class MainActivity : ComponentActivity() {
     private lateinit var textToSpeech: TextToSpeechWrapper
@@ -62,17 +60,17 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainMenuScreen(onNavigate: (String) -> Unit) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("OghmAI") },
-                actions = {
-                    IconButton(onClick = { onNavigate("settings") }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
-                    }
-                }
+    ScaffoldWithTopBar(
+        title = "OghmAI",
+        isMainScreen = true,
+        showOptionsMenu = true,
+        optionsMenuItems = listOf(
+            OptionMenuItem(
+                text = "Settings",
+                icon = Icons.Default.Settings,
+                onClick = { onNavigate("settings") }
             )
-        }
+        )
     ) { padding ->
         Column(
             modifier = Modifier
