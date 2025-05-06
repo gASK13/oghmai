@@ -70,11 +70,12 @@ fun WordDetailScreen(
                         onConfirmAction = {
                             coroutineScope.launch {
                                 RetrofitInstance.apiService.deleteWord(word)
-                                navController?.navigateUp()
+                                wordResult = null
                                 snackbarHostState.showSnackbar(
                                     "Word deleted successfully",
                                     duration = SnackbarDuration.Short, withDismissAction = true
                                 )
+                                navController?.navigateUp()
                             }
                         }
                     )
