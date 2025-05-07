@@ -28,15 +28,15 @@ fun SettingsScreen(
         title = "Settings",
         isMainScreen = false,
         showOptionsMenu = false
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Settings", style = MaterialTheme.typography.headlineSmall)
-            Spacer(modifier = Modifier.height(16.dp))
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier.padding(paddingValues).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             Text("Version: $version")
             Text("Username: $username")
             Text("Language: $language")
             Spacer(modifier = Modifier.height(24.dp))
-
             Button(
                 onClick = {
                     coroutineScope.launch {

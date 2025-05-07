@@ -7,7 +7,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -16,6 +18,7 @@ import androidx.credentials.exceptions.CreateCredentialException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
+import net.gask13.oghmai.R
 import net.gask13.oghmai.auth.AuthManager
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -89,6 +92,16 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        // App logo icon
+        Icon(
+            painter = painterResource(id = R.drawable.ic_oghmai_round), // Use your app logo resource
+            contentDescription = "App Logo",
+            modifier = Modifier.size(196.dp), // Adjust the size of the icon
+            tint = Color.Unspecified // Use the default tint color
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         Text(
             text = "Welcome to OghmAI",
             style = MaterialTheme.typography.headlineMedium,
