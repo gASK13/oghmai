@@ -53,6 +53,16 @@ fun LoginScreen(
     LaunchedEffect(Unit) {
         coroutineScope.launch {
             try {
+                // First check if we already have a valid session (should not happen due to NAV, but doesn't hurt to check)
+                if (AuthManager.validateSession()) {
+                    Log.d("LoginScreen", "Valid session found, navigating to main screen")
+                    navController.navigate("main") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                    return@launch
+                }
+
+                // Try to get credentials from Credentials API
                 val credential = getStoredCredentials()
 
                 if (credential is PasswordCredential) {
@@ -60,12 +70,10 @@ fun LoginScreen(
                     password = credential.password
                     isLoading = true
                     // Login and navigate on
-                    AuthManager.signIn(username, password)
+                    AuthManager.signIn(username, password) // Always save credentials from the Credentials API
                     navController.navigate("main") {
                         popUpTo("login") { inclusive = true }
                     }
-                } else {
-                    null
                 }
             } catch (e: Exception) {
                 isLoading = false

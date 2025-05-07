@@ -7,7 +7,6 @@ import com.amazonaws.mobile.client.Callback
 import com.amazonaws.mobile.client.UserState
 import com.amazonaws.mobile.client.UserStateDetails
 import com.amazonaws.mobile.client.results.SignInResult
-import com.amazonaws.mobile.client.results.Tokens
 import com.amazonaws.mobile.config.AWSConfiguration
 import kotlinx.coroutines.suspendCancellableCoroutine
 import net.gask13.oghmai.BuildConfig
@@ -24,6 +23,7 @@ object AuthManager {
 
     /**
      * Initialize the AWS Mobile Client and Credentials Manager
+     * This method will also attempt to restore the previous authentication state
      */
     suspend fun initialize(context : Context): Boolean = suspendCancellableCoroutine { continuation ->
         try {
@@ -44,6 +44,17 @@ object AuthManager {
             AWSMobileClient.getInstance().initialize(context, awsConfiguration, object : Callback<UserStateDetails> {
                 override fun onResult(result: UserStateDetails) {
                     Log.i(TAG, "AWSMobileClient initialized. User State: ${result.userState}")
+
+                    // Check if we have a persisted session
+                    if (result.userState == UserState.SIGNED_IN) {
+                        Log.i(TAG, "User is already signed in from a previous session")
+
+                        // Refresh tokens if needed
+                        refreshTokensIfNeeded()
+                    } else {
+                        Log.i(TAG, "No previous session found, user needs to sign in")
+                    }
+
                     continuation.resume(true)
                 }
 
@@ -81,9 +92,6 @@ object AuthManager {
         return configJson
     }
 
-    /**
-     * Check if a user is signed in
-     */
     fun isSignedIn(): Boolean {
         return try {
             val userState = AWSMobileClient.getInstance().currentUserState().userState
@@ -94,9 +102,6 @@ object AuthManager {
         }
     }
 
-    /**
-     * Get current username
-     */
     fun getCurrentUsername(): String? {
         return try {
             if (isSignedIn()) {
@@ -110,15 +115,16 @@ object AuthManager {
         }
     }
 
-    /**
-     * Sign in with username and password
-     * @param saveCredentials Whether to save the credentials after successful login
-     */
     suspend fun signIn(username: String, password: String): SignInResult = suspendCancellableCoroutine { continuation ->
         try {
             AWSMobileClient.getInstance().signIn(username, password, null, object : Callback<SignInResult> {
                 override fun onResult(result: SignInResult) {
                     Log.i(TAG, "Sign-in result: ${result.signInState}")
+
+                    // The AWSMobileClient already persists the session by default
+                    // We just need to make sure it's refreshed
+                    refreshTokensIfNeeded()
+
                     continuation.resume(result)
                 }
 
@@ -134,9 +140,6 @@ object AuthManager {
     }
 
 
-    /**
-     * Sign out the current user
-     */
     suspend fun signOut(): Boolean = suspendCancellableCoroutine { continuation ->
         try {
             // Simple sign out without options
@@ -149,10 +152,6 @@ object AuthManager {
         }
     }
 
-    /**
-     * Get the current authentication token
-     * @return The JWT token or null if not signed in or error occurs
-     */
     fun getAuthToken(): String? {
         return try {
             if (isSignedIn()) {
@@ -164,6 +163,32 @@ object AuthManager {
         } catch (e: Exception) {
             Log.e(TAG, "Error getting authentication token", e)
             null
+        }
+    }
+
+    private fun refreshTokensIfNeeded() {
+        try {
+            if (isSignedIn()) {
+                // Get current tokens - this will automatically refresh if needed
+                AWSMobileClient.getInstance().tokens
+                Log.d(TAG, "Tokens refreshed if needed")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error refreshing tokens", e)
+        }
+    }
+
+    fun validateSession(): Boolean {
+        return try {
+            if (isSignedIn()) {
+                refreshTokensIfNeeded()
+                true
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error validating session", e)
+            false
         }
     }
 }

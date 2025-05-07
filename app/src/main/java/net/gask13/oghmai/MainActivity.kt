@@ -10,17 +10,27 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -46,26 +56,57 @@ class MainActivity : ComponentActivity() {
         textToSpeech = TextToSpeechWrapper()
         textToSpeech.initializeTextToSpeech(this)
 
-        // Initialize AWS Mobile Client and RetrofitInstance
-        coroutineScope.launch {
-            try {
-                AuthManager.initialize(context = this@MainActivity)
-                Log.d("MainActivity", "AWS Mobile Client initialized")
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Error initializing AWS Mobile Client", e)
-            }
-        }
-
         setContent {
-            val navController = rememberNavController()
+            var isInitialized by remember { mutableStateOf(false) }
 
-            OghmAINavHost(navController, textToSpeech)
+            LaunchedEffect(Unit) {
+                // Initialize AWS Mobile Client and RetrofitInstance
+                coroutineScope.launch {
+                    try {
+                        AuthManager.initialize(context = this@MainActivity)
+                        Log.d("MainActivity", "AWS Mobile Client initialized")
+                        isInitialized = true
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Error initializing AWS Mobile Client", e)
+                    }
+                }
+            }
+
+            if (isInitialized) {
+                val navController = rememberNavController()
+                OghmAINavHost(navController, textToSpeech)
+            } else {
+                LoadingScreen()
+            }
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         textToSpeech.shutdown()
+    }
+}
+
+@Composable
+fun LoadingScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            // Circular progress indicator around the icon
+            CircularProgressIndicator(
+                modifier = Modifier.size(160.dp), // Adjust size to fit around the icon
+                strokeWidth = 8.dp
+            )
+            // App logo icon
+            Icon(
+                painter = painterResource(id = R.drawable.ic_oghmai_round), // Use your app logo resource
+                contentDescription = "App Logo",
+                modifier = Modifier.size(128.dp), // Adjust size of the icon
+                tint = Color.Unspecified // Use the default tint color
+            )
+        }
     }
 }
 
@@ -117,7 +158,7 @@ fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWr
     var isAuthenticated by remember { mutableStateOf(AuthManager.isSignedIn()) }
 
     // Determine the start destination based on authentication status
-    val startDestination = if (isAuthenticated) "main" else "login"
+    val startDestination = "main"
 
     NavHost(navController, startDestination = startDestination,
         enterTransition = {
@@ -150,7 +191,7 @@ fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWr
         composable("main") {
             // Check authentication status when navigating to the main screen
             LaunchedEffect(Unit) {
-                if (!AuthManager.isSignedIn()) {
+                if (!AuthManager.validateSession()) {
                     navController.navigate("login") {
                         popUpTo("main") { inclusive = true }
                     }

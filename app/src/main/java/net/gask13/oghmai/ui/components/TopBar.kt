@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -52,7 +53,7 @@ fun TopBar(
                 IconButton(onClick = {}) {
                     Icon(
                         painter = painterResource(
-                            id = R.mipmap.ic_oghmai_foreground
+                            id = R.drawable.ic_oghmai_foreground
                         ),
                         contentDescription = "App Logo"
                     )
