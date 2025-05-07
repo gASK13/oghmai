@@ -7,6 +7,7 @@ import com.amazonaws.mobile.client.Callback
 import com.amazonaws.mobile.client.UserState
 import com.amazonaws.mobile.client.UserStateDetails
 import com.amazonaws.mobile.client.results.SignInResult
+import com.amazonaws.mobile.client.results.Tokens
 import com.amazonaws.mobile.config.AWSConfiguration
 import kotlinx.coroutines.suspendCancellableCoroutine
 import net.gask13.oghmai.BuildConfig
@@ -22,7 +23,7 @@ object AuthManager {
     private const val TAG = "AuthManager"
 
     /**
-     * Initialize the AWS Mobile Client
+     * Initialize the AWS Mobile Client and Credentials Manager
      */
     suspend fun initialize(context : Context): Boolean = suspendCancellableCoroutine { continuation ->
         try {
@@ -111,6 +112,7 @@ object AuthManager {
 
     /**
      * Sign in with username and password
+     * @param saveCredentials Whether to save the credentials after successful login
      */
     suspend fun signIn(username: String, password: String): SignInResult = suspendCancellableCoroutine { continuation ->
         try {
@@ -130,6 +132,7 @@ object AuthManager {
             continuation.resumeWithException(e)
         }
     }
+
 
     /**
      * Sign out the current user
