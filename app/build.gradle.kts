@@ -14,7 +14,7 @@ plugins {
 
 android {
     namespace = "net.gask13.oghmai"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "net.gask13.oghmai"
@@ -92,4 +92,10 @@ dependencies {
     implementation(libs.aws.auth.cognito)
     implementation(libs.aws.android.sdk.cognitoidentityprovider)
     implementation(libs.aws.android.sdk.mobile.client)
+
+    // Credentials API
+    implementation(libs.androidx.credentials)
+    // optional - needed for credentials support from play services, for devices running
+    // Android 13 and below.
+    implementation(libs.androidx.credentials.play.services.auth)
 }

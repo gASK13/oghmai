@@ -16,8 +16,7 @@ import net.gask13.oghmai.auth.AuthManager
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    navController: NavController,
-    authManager: AuthManager
+    navController: NavController
 ) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -84,7 +83,7 @@ fun LoginScreen(
                     errorMessage = null
                     
                     try {
-                        authManager.signIn(username, password)
+                        AuthManager.signIn(username, password)
                         isLoading = false
                         
                         // Navigate to the main screen on successful login

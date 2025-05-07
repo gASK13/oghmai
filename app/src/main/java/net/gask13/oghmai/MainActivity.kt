@@ -30,7 +30,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import net.gask13.oghmai.auth.AuthManager
-import net.gask13.oghmai.network.RetrofitInstance
 import net.gask13.oghmai.services.TextToSpeechWrapper
 import net.gask13.oghmai.ui.*
 import net.gask13.oghmai.ui.components.MenuButton
@@ -39,7 +38,6 @@ import net.gask13.oghmai.ui.components.ScaffoldWithTopBar
 
 class MainActivity : ComponentActivity() {
     private lateinit var textToSpeech: TextToSpeechWrapper
-    private lateinit var authManager: AuthManager
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,18 +46,11 @@ class MainActivity : ComponentActivity() {
         textToSpeech = TextToSpeechWrapper()
         textToSpeech.initializeTextToSpeech(this)
 
-        // Initialize AuthManager
-        authManager = AuthManager.getInstance(this)
-
         // Initialize AWS Mobile Client and RetrofitInstance
         coroutineScope.launch {
             try {
-                authManager.initialize()
+                AuthManager.initialize(context = this@MainActivity)
                 Log.d("MainActivity", "AWS Mobile Client initialized")
-
-                // Initialize RetrofitInstance with AuthManager
-                RetrofitInstance.initialize(authManager)
-                Log.d("MainActivity", "RetrofitInstance initialized with AuthManager")
             } catch (e: Exception) {
                 Log.e("MainActivity", "Error initializing AWS Mobile Client", e)
             }
@@ -68,7 +59,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val navController = rememberNavController()
 
-            OghmAINavHost(navController, textToSpeech, authManager)
+            OghmAINavHost(navController, textToSpeech)
         }
     }
 
@@ -121,9 +112,9 @@ fun MainMenuScreen(onNavigate: (String) -> Unit) {
 // SettingsScreen moved to a separate file in ui package
 
 @Composable
-fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWrapper, authManager: AuthManager) {
+fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWrapper) {
     // Check if a user is authenticated
-    var isAuthenticated by remember { mutableStateOf(authManager.isSignedIn()) }
+    var isAuthenticated by remember { mutableStateOf(AuthManager.isSignedIn()) }
 
     // Determine the start destination based on authentication status
     val startDestination = if (isAuthenticated) "main" else "login"
@@ -154,12 +145,12 @@ fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWr
             ) + fadeOut(animationSpec = tween(durationMillis = 300))
         }) {
         composable("login") {
-            LoginScreen(navController, authManager)
+            LoginScreen(navController)
         }
         composable("main") {
             // Check authentication status when navigating to the main screen
             LaunchedEffect(Unit) {
-                if (!authManager.isSignedIn()) {
+                if (!AuthManager.isSignedIn()) {
                     navController.navigate("login") {
                         popUpTo("main") { inclusive = true }
                     }
@@ -183,7 +174,7 @@ fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWr
             WordDetailScreen(word, navController,  textToSpeech)
         }
         composable("settings") {
-            SettingsScreen(navController, authManager)
+            SettingsScreen(navController)
         }
         composable("testWords") {
             ChallengeScreen(navController, textToSpeech)

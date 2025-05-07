@@ -17,26 +17,14 @@ import kotlin.coroutines.resumeWithException
 /**
  * Manager class for handling authentication with AWS Cognito
  */
-class AuthManager private constructor(private val context: Context) {
+object AuthManager {
 
-    private val tag = "AuthManager"
-    private val awsMobileClient = AWSMobileClient.getInstance()
-
-    companion object {
-        @Volatile
-        private var INSTANCE: AuthManager? = null
-
-        fun getInstance(context: Context): AuthManager {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: AuthManager(context.applicationContext).also { INSTANCE = it }
-            }
-        }
-    }
+    private const val TAG = "AuthManager"
 
     /**
      * Initialize the AWS Mobile Client
      */
-    suspend fun initialize(): Boolean = suspendCancellableCoroutine { continuation ->
+    suspend fun initialize(context : Context): Boolean = suspendCancellableCoroutine { continuation ->
         try {
             // Get Cognito configuration from BuildConfig
             val poolId = BuildConfig.COGNITO_POOL_ID
@@ -44,48 +32,52 @@ class AuthManager private constructor(private val context: Context) {
             val region = BuildConfig.COGNITO_REGION
 
             // Log the configuration values
-            Log.d(tag, "Using Cognito configuration from BuildConfig")
-            Log.d(tag, "Region: $region, Pool ID: $poolId, Client ID: $clientId")
-
-            // Create a JSON configuration object
-            val cognitoConfig = JSONObject().apply {
-                put("PoolId", poolId)
-                put("AppClientId", clientId)
-                put("Region", region)
-            }
-
-            val defaultCognitoConfig = JSONObject().apply {
-                put("Default", cognitoConfig)
-            }
-
-            val identityManager = JSONObject().apply {
-                put("Default", JSONObject())
-            }
-
-            val configJson = JSONObject().apply {
-                put("IdentityManager", identityManager)
-                put("CognitoUserPool", defaultCognitoConfig)
-            }
+            Log.d(TAG, "Using Cognito configuration from BuildConfig")
+            Log.d(TAG, "Region: $region, Pool ID: $poolId, Client ID: $clientId")
+            val configJson = getCognitoConfigJson(poolId, clientId, region)
 
             // Create AWSConfiguration from the JSON object
             val awsConfiguration = AWSConfiguration(configJson)
 
             // Initialize with the configuration
-            awsMobileClient.initialize(context, awsConfiguration, object : Callback<UserStateDetails> {
+            AWSMobileClient.getInstance().initialize(context, awsConfiguration, object : Callback<UserStateDetails> {
                 override fun onResult(result: UserStateDetails) {
-                    Log.i(tag, "AWSMobileClient initialized. User State: ${result.userState}")
+                    Log.i(TAG, "AWSMobileClient initialized. User State: ${result.userState}")
                     continuation.resume(true)
                 }
 
                 override fun onError(e: Exception) {
-                    Log.e(tag, "Error initializing AWSMobileClient", e)
+                    Log.e(TAG, "Error initializing AWSMobileClient", e)
                     continuation.resumeWithException(e)
                 }
             })
         } catch (e: Exception) {
-            Log.e(tag, "Error in initialize", e)
+            Log.e(TAG, "Error in initialize", e)
             continuation.resumeWithException(e)
         }
+    }
+
+    private fun getCognitoConfigJson(poolId: String, clientId: String, region: String): JSONObject {
+        // Create a JSON configuration object
+        val cognitoConfig = JSONObject().apply {
+            put("PoolId", poolId)
+            put("AppClientId", clientId)
+            put("Region", region)
+        }
+
+        val defaultCognitoConfig = JSONObject().apply {
+            put("Default", cognitoConfig)
+        }
+
+        val identityManager = JSONObject().apply {
+            put("Default", JSONObject())
+        }
+
+        val configJson = JSONObject().apply {
+            put("IdentityManager", identityManager)
+            put("CognitoUserPool", defaultCognitoConfig)
+        }
+        return configJson
     }
 
     /**
@@ -93,10 +85,10 @@ class AuthManager private constructor(private val context: Context) {
      */
     fun isSignedIn(): Boolean {
         return try {
-            val userState = awsMobileClient.currentUserState().userState
+            val userState = AWSMobileClient.getInstance().currentUserState().userState
             userState == UserState.SIGNED_IN
         } catch (e: Exception) {
-            Log.e(tag, "Error checking sign-in status", e)
+            Log.e(TAG, "Error checking sign-in status", e)
             false
         }
     }
@@ -107,12 +99,12 @@ class AuthManager private constructor(private val context: Context) {
     fun getCurrentUsername(): String? {
         return try {
             if (isSignedIn()) {
-                awsMobileClient.username
+                AWSMobileClient.getInstance().username
             } else {
                 null
             }
         } catch (e: Exception) {
-            Log.e(tag, "Error getting current username", e)
+            Log.e(TAG, "Error getting current username", e)
             null
         }
     }
@@ -122,19 +114,19 @@ class AuthManager private constructor(private val context: Context) {
      */
     suspend fun signIn(username: String, password: String): SignInResult = suspendCancellableCoroutine { continuation ->
         try {
-            awsMobileClient.signIn(username, password, null, object : Callback<SignInResult> {
+            AWSMobileClient.getInstance().signIn(username, password, null, object : Callback<SignInResult> {
                 override fun onResult(result: SignInResult) {
-                    Log.i(tag, "Sign-in result: ${result.signInState}")
+                    Log.i(TAG, "Sign-in result: ${result.signInState}")
                     continuation.resume(result)
                 }
 
                 override fun onError(e: Exception) {
-                    Log.e(tag, "Error during sign-in", e)
+                    Log.e(TAG, "Error during sign-in", e)
                     continuation.resumeWithException(e)
                 }
             })
         } catch (e: Exception) {
-            Log.e(tag, "Error in signIn", e)
+            Log.e(TAG, "Error in signIn", e)
             continuation.resumeWithException(e)
         }
     }
@@ -145,11 +137,11 @@ class AuthManager private constructor(private val context: Context) {
     suspend fun signOut(): Boolean = suspendCancellableCoroutine { continuation ->
         try {
             // Simple sign out without options
-            awsMobileClient.signOut()
-            Log.i(tag, "Sign-out completed")
+            AWSMobileClient.getInstance().signOut()
+            Log.i(TAG, "Sign-out completed")
             continuation.resume(true)
         } catch (e: Exception) {
-            Log.e(tag, "Error in signOut", e)
+            Log.e(TAG, "Error in signOut", e)
             continuation.resumeWithException(e)
         }
     }
@@ -161,13 +153,13 @@ class AuthManager private constructor(private val context: Context) {
     fun getAuthToken(): String? {
         return try {
             if (isSignedIn()) {
-                val tokens = awsMobileClient.tokens
+                val tokens = AWSMobileClient.getInstance().tokens
                 tokens.idToken.tokenString
             } else {
                 null
             }
         } catch (e: Exception) {
-            Log.e(tag, "Error getting authentication token", e)
+            Log.e(TAG, "Error getting authentication token", e)
             null
         }
     }
