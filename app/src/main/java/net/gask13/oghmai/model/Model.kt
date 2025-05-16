@@ -21,6 +21,14 @@ enum class WordActionEnum {
     RESET
 }
 
+enum class WordTypeEnum {
+    NOUN,
+    VERB,
+    PRONOUN,
+    ADJECTIVE,
+    OTHER // Catch-all for any word type that doesn't fit into the above categories
+}
+
 data class TestChallenge(
     val description: String,
     val id: String
@@ -37,11 +45,17 @@ data class TestResult(
 data class TestStatistics(
     val available: Map<WordStatus, Int>,
 )
-data class WordResult(
-    val word: String,
+
+data class WordDefinition(
     val translation: String,
     val definition: String,
     val examples: List<String>,
+    val type: WordTypeEnum
+)
+
+data class WordResult(
+    val word: String,
+    val meanings: List<WordDefinition>,
     val createdAt: Timestamp?,
     val lastTest: Timestamp?,
     val testResults: List<Boolean>,
