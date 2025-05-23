@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,17 +34,19 @@ import net.gask13.oghmai.ui.components.TestResultDots
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WordListingScreen(navController: NavHostController) {
-    var words by remember { mutableStateOf<List<WordItem>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedStatuses by remember { mutableStateOf<Set<WordStatus>>(emptySet()) }
-    var failedLastTest by remember { mutableStateOf(false) }
+fun WordListingScreen(
+    navController: NavHostController
+) {
+    var words by rememberSaveable { mutableStateOf<List<WordItem>>(emptyList()) }
+    var isLoading by rememberSaveable { mutableStateOf(true) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var selectedStatuses by rememberSaveable { mutableStateOf<Set<WordStatus>>(emptySet()) }
+    var failedLastTest by rememberSaveable { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    var recentlyDeletedWord by remember { mutableStateOf<Pair<WordItem, Int>?>(null) }
-    var showSnackbar by remember { mutableStateOf(false) }
-    var showFilterDialog by remember { mutableStateOf(false) }
+    var recentlyDeletedWord by rememberSaveable { mutableStateOf<Pair<WordItem, Int>?>(null) }
+    var showSnackbar by rememberSaveable { mutableStateOf(false) }
+    var showFilterDialog by rememberSaveable { mutableStateOf(false) }
 
     fun fetchWords() {
         coroutineScope.launch {
@@ -87,9 +90,9 @@ fun WordListingScreen(navController: NavHostController) {
         }
     }
 
-    LaunchedEffect(true) {
-        // Only load if no words
+    LaunchedEffect(Unit) {
         if (words.isEmpty()) {
+            // Only load if no words when returning from word detail
             fetchWords()
         }
     }
@@ -187,7 +190,10 @@ fun WordListingScreen(navController: NavHostController) {
                 ) {
                     OutlinedTextField(
                         value = searchQuery,
-                        onValueChange = { fetchWords() },
+                        onValueChange = { newValue -> 
+                            searchQuery = newValue
+                            fetchWords()
+                        },
                         modifier = Modifier.weight(1f).background(MaterialTheme.colorScheme.surface),
                         placeholder = { Text("Search words...") },
                         leadingIcon = {
