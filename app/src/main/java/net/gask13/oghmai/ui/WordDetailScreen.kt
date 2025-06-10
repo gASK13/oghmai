@@ -17,6 +17,7 @@ import androidx.navigation.NavHostController
 import kotlinx.coroutines.launch
 import net.gask13.oghmai.model.WordActionEnum
 import net.gask13.oghmai.model.WordResult
+import net.gask13.oghmai.model.WordTypeEnum
 import net.gask13.oghmai.network.RetrofitInstance
 import net.gask13.oghmai.services.TextToSpeechWrapper
 import net.gask13.oghmai.ui.components.ConfirmDialogHandler
@@ -59,8 +60,9 @@ fun WordDetailScreen(
         isMainScreen = false,
         onBackClick = { navController?.navigateUp() },
         showOptionsMenu = true,
-        optionsMenuItems = listOf(
-            OptionMenuItem(
+        optionsMenuItems = buildList {
+            // Always add Delete option
+            add(OptionMenuItem(
                 text = "Delete",
                 icon = Icons.Default.Delete,
                 onClick = {
@@ -80,8 +82,10 @@ fun WordDetailScreen(
                         }
                     )
                 }
-            ),
-            OptionMenuItem(
+            ))
+
+            // Always add Reset status option
+            add(OptionMenuItem(
                 text = "Reset status",
                 icon = Icons.Default.Refresh,
                 onClick = {
@@ -100,18 +104,20 @@ fun WordDetailScreen(
                         }
                     )
                 }
-            ),
-            OptionMenuItem(
-                text = "Explain...",
-                icon = Icons.Default.Info,
-                onClick = {
-                    // TODO: Implement explain functionality
-                    coroutineScope.launch {
-                        snackbarHostState.showSnackbar("Explain functionality not implemented yet")
-                    }
+            ))
+
+            wordResult?.let { result ->
+                if (result.meanings.stream().anyMatch{ m -> m.type == WordTypeEnum.VERB }) {
+                    add(OptionMenuItem(
+                        text = "Explain tenses",
+                        icon = Icons.Default.Info,
+                        onClick = {
+                            navController?.navigate("explainTenses/${word}")
+                        }
+                    ))
                 }
-            )
-        ),
+            }
+        },
         snackbarHostState = snackbarHostState
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {

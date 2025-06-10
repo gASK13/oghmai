@@ -32,6 +32,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import net.gask13.oghmai.auth.AuthManager
+import net.gask13.oghmai.network.RetrofitInstance
 import net.gask13.oghmai.services.TextToSpeechWrapper
 import net.gask13.oghmai.ui.*
 import net.gask13.oghmai.ui.components.MenuButton
@@ -215,6 +216,15 @@ fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWr
         composable("discoverWord/{word}") { backStackEntry ->
             val word = backStackEntry.arguments?.getString("word") ?: ""
             WordDiscoveryScreen(navController, textToSpeech, word)
+        }
+        composable("explainTenses/{word}") { backStackEntry ->
+            val word = backStackEntry.arguments?.getString("word") ?: ""
+            ExplanationScreen(
+                word = word,
+                navController = navController,
+                explanationType = "Tenses",
+                getExplanation = { RetrofitInstance.apiService.getWordTenses(it) }
+            )
         }
     }
 }

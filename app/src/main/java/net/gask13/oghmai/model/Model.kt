@@ -76,3 +76,9 @@ data class DescriptionRequest(
 data class WordList(
     val words: List<WordItem>
 )
+
+data class ExplanationResponse(
+    val word: String,
+    val type: WordTypeEnum,
+    val explanations: Map<String, List<String>>
+)

@@ -1,6 +1,7 @@
 package net.gask13.oghmai.network
 
 import net.gask13.oghmai.model.DescriptionRequest
+import net.gask13.oghmai.model.ExplanationResponse
 import net.gask13.oghmai.model.TestChallenge
 import net.gask13.oghmai.model.TestResult
 import net.gask13.oghmai.model.TestStatistics
@@ -30,6 +31,9 @@ interface ApiService {
 
     @DELETE("word/{word}")
     suspend fun deleteWord(@Path("word") word: String)
+
+    @GET("word/{word}/tenses")
+    suspend fun getWordTenses(@Path("word") word: String): ExplanationResponse
 
     @PATCH("word/{word}")
     suspend fun patchWord(@Path("word") word: String, @Query("action") action: WordActionEnum)
