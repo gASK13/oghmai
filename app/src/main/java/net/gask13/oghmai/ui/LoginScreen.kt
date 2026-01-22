@@ -24,7 +24,8 @@ import net.gask13.oghmai.auth.AuthManager
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    navController: NavController
+    navController: NavController,
+    onLoginSuccess: (() -> Unit)? = null
 ) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -59,8 +60,12 @@ fun LoginScreen(
                 // First check if we already have a valid session (should not happen due to NAV, but doesn't hurt to check)
                 if (AuthManager.validateSession()) {
                     Log.d("LoginScreen", "Valid session found, navigating to main screen")
-                    navController.navigate("main") {
-                        popUpTo("login") { inclusive = true }
+                    if (onLoginSuccess != null) {
+                        onLoginSuccess()
+                    } else {
+                        navController.navigate("main") {
+                            popUpTo("login") { inclusive = true }
+                        }
                     }
                     return@launch
                 }
@@ -74,8 +79,12 @@ fun LoginScreen(
                     isLoading = true
                     // Login and navigate on
                     AuthManager.signIn(username, password) // Always save credentials from the Credentials API
-                    navController.navigate("main") {
-                        popUpTo("login") { inclusive = true }
+                    if (onLoginSuccess != null) {
+                        onLoginSuccess()
+                    } else {
+                        navController.navigate("main") {
+                            popUpTo("login") { inclusive = true }
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -167,8 +176,12 @@ fun LoginScreen(
                         }
 
                         // Navigate to the main screen on successful login
-                        navController.navigate("main") {
-                            popUpTo("login") { inclusive = true }
+                        if (onLoginSuccess != null) {
+                            onLoginSuccess()
+                        } else {
+                            navController.navigate("main") {
+                                popUpTo("login") { inclusive = true }
+                            }
                         }
                     } catch (e: Exception) {
                         isLoading = false

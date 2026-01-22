@@ -82,3 +82,12 @@ data class ExplanationResponse(
     val type: WordTypeEnum,
     val explanations: Map<String, List<String>>
 )
+
+data class WordTranslationPair(
+    val word: String,
+    val translation: String
+)
+
+data class MatchChallenge(
+    val pairs: List<WordTranslationPair>
+)

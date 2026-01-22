@@ -1,11 +1,16 @@
 package net.gask13.oghmai.ui
 
 import android.util.Log
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -19,7 +24,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import kotlinx.coroutines.launch
@@ -30,6 +37,8 @@ import net.gask13.oghmai.network.RetrofitInstance
 import net.gask13.oghmai.ui.components.ScaffoldWithTopBar
 import net.gask13.oghmai.ui.components.StatusIcon
 import net.gask13.oghmai.ui.components.TestResultDots
+import net.gask13.oghmai.util.SnackbarManager
+import kotlin.math.roundToInt
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,6 +56,8 @@ fun WordListingScreen(
     var recentlyDeletedWord by rememberSaveable { mutableStateOf<Pair<WordItem, Int>?>(null) }
     var showSnackbar by rememberSaveable { mutableStateOf(false) }
     var showFilterDialog by rememberSaveable { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    var currentlyOpenWord by remember { mutableStateOf<String?>(null) }
 
     fun fetchWords() {
         coroutineScope.launch {
@@ -80,10 +91,10 @@ fun WordListingScreen(
                 words = response.words
                 isLoading = false
             } catch (e: Exception) {
-                snackbarHostState.showSnackbar(
-                    message = "Error fetching words! {${e.message}",
-                    withDismissAction = true,
-                    duration = SnackbarDuration.Short
+                SnackbarManager.showOperationError(
+                    snackbarHostState = snackbarHostState,
+                    operation = "fetch",
+                    exception = e
                 )
                 isLoading = false
             }
@@ -94,6 +105,13 @@ fun WordListingScreen(
         if (words.isEmpty()) {
             // Only load if no words when returning from word detail
             fetchWords()
+        }
+    }
+
+    // Close open card when scrolling
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress && currentlyOpenWord != null) {
+            currentlyOpenWord = null
         }
     }
 
@@ -233,105 +251,39 @@ fun WordListingScreen(
                     }
                 } else {
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        itemsIndexed(words, key = { _, word -> word.word }) { index, word -> // Use word.word as the key
-                            val isActionTriggered = remember { mutableStateOf(false) }
-                            val dismissState = rememberSwipeToDismissBoxState(
-                                confirmValueChange = { dismissValue ->
-                                    if (dismissValue == SwipeToDismissBoxValue.StartToEnd && !isActionTriggered.value) {
-                                        isActionTriggered.value = true
-                                        recentlyDeletedWord = Pair(word, index)
-                                        coroutineScope.launch {
-                                            try {
-                                                RetrofitInstance.apiService.deleteWord(word.word)
-                                                // Update the list locally after successful deletion
-                                                words = words.filter { it != word }
-                                                showSnackbar = true // Trigger snackbar
-                                            } catch (e: Exception) {
-                                                snackbarHostState.showSnackbar("Error deleting word! {${e.message}", withDismissAction = true, duration = SnackbarDuration.Short)
-                                            }
+                        itemsIndexed(words, key = { _, word -> word.word }) { index, word ->
+                            SwipeableWordCard(
+                                word = word,
+                                index = index,
+                                isOpen = currentlyOpenWord == word.word,
+                                onOpenChange = { isOpen ->
+                                    currentlyOpenWord = if (isOpen) word.word else null
+                                },
+                                onDelete = {
+                                    recentlyDeletedWord = Pair(word, index)
+                                    coroutineScope.launch {
+                                        try {
+                                            RetrofitInstance.apiService.deleteWord(word.word)
+                                            words = words.filter { it != word }
+                                            showSnackbar = true
+                                        } catch (e: Exception) {
+                                            SnackbarManager.showOperationError(
+                                                snackbarHostState = snackbarHostState,
+                                                operation = "delete",
+                                                exception = e
+                                            )
                                         }
-                                        true
-                                    } else {
-                                        false
-                                    }
-                                }
-                            )
-
-                            SwipeToDismissBox(
-                                state = dismissState,
-                                enableDismissFromEndToStart = false,
-                                backgroundContent = {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clip(RoundedCornerShape(32.dp))
-                                            .background(Color.Red),
-                                        contentAlignment = Alignment.CenterStart
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Delete,
-                                            contentDescription = "Delete",
-                                            tint = Color.White,
-                                            modifier = Modifier.padding(start = 16.dp)
-                                        )
                                     }
                                 },
-                                content = {
-                                    val isDismissed = dismissState.currentValue != SwipeToDismissBoxValue.Settled
-                                    Card(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable(enabled = !isDismissed) {
-                                                Log.d("Navigation", "Navigating to word detail for $word")
-                                                navController.navigate("wordDetail/${word.word}")
-                                            },
-                                        shape = RoundedCornerShape(32.dp),
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = MaterialTheme.colorScheme.primary
-                                        )
-                                    ) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(16.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Column {
-                                                Text(
-                                                    text = word.word,
-                                                    style = MaterialTheme.typography.bodyLarge.copy(
-                                                        color = Color.White,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
-                                                )
-                                            }
-
-                                            // Status icon and test result dots
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                            ) {
-                                                // Test result dots
-                                                TestResultDots(
-                                                    testResults = word.testResults,
-                                                    dotSize = 8,
-                                                    dotSpacing = 2
-                                                )
-
-                                                // Status icon
-                                                StatusIcon(
-                                                    wordStatus = word.status,
-                                                    modifier = Modifier.size(24.dp)
-                                                )
-                                            }
-                                        }
-                                    }
+                                onClick = {
+                                    Log.d("Navigation", "Navigating to word detail for $word")
+                                    navController.navigate("wordDetail/${word.word}")
                                 }
                             )
                         }
@@ -342,11 +294,10 @@ fun WordListingScreen(
             // Trigger snackbar in a proper @Composable scope
             if (showSnackbar && recentlyDeletedWord != null) {
                 LaunchedEffect(snackbarHostState, recentlyDeletedWord) {
-                    val result = snackbarHostState.showSnackbar(
+                    val result = SnackbarManager.showWithAction(
+                        snackbarHostState = snackbarHostState,
                         message = "Deleted ${recentlyDeletedWord!!.first.word}",
-                        actionLabel = "Undo",
-                        duration = SnackbarDuration.Short,
-                        withDismissAction = true,
+                        actionLabel = "Undo"
                     )
                     if (result == SnackbarResult.ActionPerformed) {
                         coroutineScope.launch {
@@ -359,12 +310,148 @@ fun WordListingScreen(
                                 currentList.add(recentlyDeletedWord!!.second, recentlyDeletedWord!!.first)
                                 words = currentList
                             } catch (e: Exception) {
-                                snackbarHostState.showSnackbar("Error restoring word! {${e.message}", withDismissAction = true, duration = SnackbarDuration.Short)
+                                SnackbarManager.showError(
+                                    snackbarHostState = snackbarHostState,
+                                    exception = e,
+                                    context = "Failed to restore word"
+                                )
                             }
                         }
                     }
                     snackbarHostState.currentSnackbarData?.dismiss() // Dismiss the snackbar
                     showSnackbar = false // Reset snackbar trigger
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SwipeableWordCard(
+    word: WordItem,
+    index: Int,
+    isOpen: Boolean,
+    onOpenChange: (Boolean) -> Unit,
+    onDelete: () -> Unit,
+    onClick: () -> Unit
+) {
+    val maxSwipeOffset = 80.dp
+    val offsetX = remember { Animatable(0f) }
+    val coroutineScope = rememberCoroutineScope()
+    val density = androidx.compose.ui.platform.LocalDensity.current
+
+    // Animate to open or closed position based on isOpen state
+    LaunchedEffect(isOpen) {
+        offsetX.animateTo(
+            targetValue = if (isOpen) with(density) { maxSwipeOffset.toPx() } else 0f,
+            animationSpec = tween(durationMillis = 200)
+        )
+    }
+
+    Box(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // Background with delete icon - placed first to be behind
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(RoundedCornerShape(32.dp))
+                .background(Color.Red),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            IconButton(
+                onClick = {
+                    onDelete()
+                    onOpenChange(false)
+                },
+                modifier = Modifier.padding(start = 8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+
+        // Foreground card - placed last to be on top
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            coroutineScope.launch {
+                                val maxOffset = with(this@pointerInput) { maxSwipeOffset.toPx() }
+                                // Snap to open or closed based on current position
+                                if (offsetX.value > maxOffset / 2) {
+                                    offsetX.animateTo(
+                                        targetValue = maxOffset,
+                                        animationSpec = tween(durationMillis = 200)
+                                    )
+                                    onOpenChange(true)
+                                } else {
+                                    offsetX.animateTo(
+                                        targetValue = 0f,
+                                        animationSpec = tween(durationMillis = 200)
+                                    )
+                                    onOpenChange(false)
+                                }
+                            }
+                        },
+                        onHorizontalDrag = { _, dragAmount ->
+                            coroutineScope.launch {
+                                val maxOffset = with(this@pointerInput) { maxSwipeOffset.toPx() }
+                                val newOffset = (offsetX.value + dragAmount).coerceIn(0f, maxOffset)
+                                offsetX.snapTo(newOffset)
+                            }
+                        }
+                    )
+                }
+                .clickable(enabled = !isOpen) {
+                    onClick()
+                },
+            shape = RoundedCornerShape(32.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = word.word,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+
+                // Status icon and test result dots
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Test result dots
+                    TestResultDots(
+                        testResults = word.testResults,
+                        dotSize = 8,
+                        dotSpacing = 2
+                    )
+
+                    // Status icon
+                    StatusIcon(
+                        wordStatus = word.status,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
             }
         }

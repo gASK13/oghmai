@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import net.gask13.oghmai.model.ExplanationResponse
 import net.gask13.oghmai.network.RetrofitInstance
 import net.gask13.oghmai.ui.components.ScaffoldWithTopBar
+import net.gask13.oghmai.util.SnackbarManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,9 +35,10 @@ fun ExplanationScreen(
                 explanationResponse = response
                 isLoading = false
             } catch (e: Exception) {
-                snackbarHostState.showSnackbar(
-                    "Error loading $explanationType: ${e.message}",
-                    duration = SnackbarDuration.Long
+                SnackbarManager.showError(
+                    snackbarHostState = snackbarHostState,
+                    exception = e,
+                    context = "Failed to load $explanationType"
                 )
                 isLoading = false
             }

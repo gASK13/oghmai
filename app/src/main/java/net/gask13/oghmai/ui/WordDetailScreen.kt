@@ -17,6 +17,7 @@ import androidx.navigation.NavHostController
 import kotlinx.coroutines.launch
 import net.gask13.oghmai.model.WordActionEnum
 import net.gask13.oghmai.model.WordResult
+import net.gask13.oghmai.model.WordStatus
 import net.gask13.oghmai.model.WordTypeEnum
 import net.gask13.oghmai.network.RetrofitInstance
 import net.gask13.oghmai.services.TextToSpeechWrapper
@@ -25,7 +26,8 @@ import net.gask13.oghmai.ui.components.ConfirmDialogRequest
 import net.gask13.oghmai.ui.components.OptionMenuItem
 import net.gask13.oghmai.ui.components.ScaffoldWithTopBar
 import net.gask13.oghmai.ui.components.WordResultCard
-import net.gask13.oghmai.ui.components.WordStatusBadge
+import net.gask13.oghmai.ui.components.AnimatedWordStatusBadge
+import net.gask13.oghmai.util.SnackbarManager
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -37,6 +39,7 @@ fun WordDetailScreen(
     textToSpeech: TextToSpeechWrapper
 ) {
     var wordResult by remember { mutableStateOf<WordResult?>(null) }
+    var previousStatus by remember { mutableStateOf<WordStatus?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -45,8 +48,16 @@ fun WordDetailScreen(
 
     LaunchedEffect(word) {
         coroutineScope.launch {
-            val response = RetrofitInstance.apiService.getWord(word)
-            wordResult = response
+            try {
+                val response = RetrofitInstance.apiService.getWord(word)
+                wordResult = response
+            } catch (e: Exception) {
+                SnackbarManager.showOperationError(
+                    snackbarHostState = snackbarHostState,
+                    operation = "load",
+                    exception = e
+                )
+            }
         }
     }
 
@@ -71,13 +82,21 @@ fun WordDetailScreen(
                         item = "word '$word'",
                         onConfirmAction = {
                             coroutineScope.launch {
-                                RetrofitInstance.apiService.deleteWord(word)
-                                wordResult = null
-                                snackbarHostState.showSnackbar(
-                                    "Word deleted successfully",
-                                    duration = SnackbarDuration.Short, withDismissAction = true
-                                )
-                                navController?.navigateUp()
+                                try {
+                                    RetrofitInstance.apiService.deleteWord(word)
+                                    wordResult = null
+                                    SnackbarManager.showSuccess(
+                                        snackbarHostState = snackbarHostState,
+                                        message = "Word deleted successfully"
+                                    )
+                                    navController?.navigateUp()
+                                } catch (e: Exception) {
+                                    SnackbarManager.showOperationError(
+                                        snackbarHostState = snackbarHostState,
+                                        operation = "delete",
+                                        exception = e
+                                    )
+                                }
                             }
                         }
                     )
@@ -94,12 +113,23 @@ fun WordDetailScreen(
                         item = "word '$word' to NEW status",
                         onConfirmAction = {
                             coroutineScope.launch {
-                                RetrofitInstance.apiService.patchWord(word, WordActionEnum.RESET)
-                                wordResult = RetrofitInstance.apiService.getWord(word)
-                                snackbarHostState.showSnackbar(
-                                    "Word status reset successfully",
-                                    duration = SnackbarDuration.Short, withDismissAction = true
-                                )
+                                try {
+                                    // Store the old status before reset
+                                    previousStatus = wordResult?.status
+
+                                    RetrofitInstance.apiService.patchWord(word, WordActionEnum.RESET)
+                                    wordResult = RetrofitInstance.apiService.getWord(word)
+                                    SnackbarManager.showSuccess(
+                                        snackbarHostState = snackbarHostState,
+                                        message = "Word status reset successfully"
+                                    )
+                                } catch (e: Exception) {
+                                    SnackbarManager.showOperationError(
+                                        snackbarHostState = snackbarHostState,
+                                        operation = "update",
+                                        exception = e
+                                    )
+                                }
                             }
                         }
                     )
@@ -183,10 +213,12 @@ fun WordDetailScreen(
                                 }
                             }
 
-                            // Display status as a badge
-                            WordStatusBadge(
+                            // Display status as a badge with animation
+                            AnimatedWordStatusBadge(
                                 wordStatus = it.status,
-                                modifier = Modifier.padding(top = 8.dp)
+                                previousStatus = previousStatus,
+                                modifier = Modifier.padding(top = 8.dp),
+                                showCelebration = false // Don't show celebration for resets
                             )
                         }
                     }

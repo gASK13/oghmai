@@ -2,6 +2,7 @@ package net.gask13.oghmai.network
 
 import net.gask13.oghmai.model.DescriptionRequest
 import net.gask13.oghmai.model.ExplanationResponse
+import net.gask13.oghmai.model.MatchChallenge
 import net.gask13.oghmai.model.TestChallenge
 import net.gask13.oghmai.model.TestResult
 import net.gask13.oghmai.model.TestStatistics
@@ -52,4 +53,9 @@ interface ApiService {
         @Path("id") id: String,
         @Query("guess") guess: String
     ): TestResult
+
+    @GET("test/match")
+    suspend fun getNextMatchTest(
+        @Query("count") count: Int = 20,
+    ): MatchChallenge
 }

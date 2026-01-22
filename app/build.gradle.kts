@@ -45,6 +45,10 @@ android {
             buildConfigField("String", "COGNITO_REGION", "\"${localProps.getProperty("cognito.region")}\"")
         }
     }
+    lint {
+        // Suppress Credential Manager lint error since we use AWS Cognito for auth
+        disable += "CredManMissingDal"
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
@@ -98,4 +102,7 @@ dependencies {
     // optional - needed for credentials support from play services, for devices running
     // Android 13 and below.
     implementation(libs.androidx.credentials.play.services.auth)
+
+    // WorkManager for scheduling notifications
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 }

@@ -12,13 +12,20 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,14 +40,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import net.gask13.oghmai.auth.AuthManager
 import net.gask13.oghmai.network.RetrofitInstance
+import net.gask13.oghmai.notifications.NotificationHelper
+import net.gask13.oghmai.notifications.NotificationScheduler
+import net.gask13.oghmai.preferences.PreferencesManager
 import net.gask13.oghmai.services.TextToSpeechWrapper
 import net.gask13.oghmai.ui.*
 import net.gask13.oghmai.ui.components.MenuButton
 import net.gask13.oghmai.ui.components.OptionMenuItem
 import net.gask13.oghmai.ui.components.ScaffoldWithTopBar
+import net.gask13.oghmai.util.SoundEffectsManager
 
 class MainActivity : ComponentActivity() {
     private lateinit var textToSpeech: TextToSpeechWrapper
+    private lateinit var soundEffectsManager: SoundEffectsManager
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,6 +60,25 @@ class MainActivity : ComponentActivity() {
 
         textToSpeech = TextToSpeechWrapper()
         textToSpeech.initializeTextToSpeech(this)
+
+        soundEffectsManager = SoundEffectsManager(this)
+        soundEffectsManager.initialize()
+
+        // Initialize notification channel
+        NotificationHelper.createNotificationChannel(this)
+
+        // Schedule notifications if enabled
+        val preferencesManager = PreferencesManager(this)
+        if (preferencesManager.isNotificationsEnabled()) {
+            NotificationScheduler.scheduleDailyNotification(
+                this,
+                preferencesManager.getNotificationHour(),
+                preferencesManager.getNotificationMinute()
+            )
+        }
+
+        // Extract shared text from intent if present
+        val sharedText = extractSharedText(intent)
 
         setContent {
             var isInitialized by remember { mutableStateOf(false) }
@@ -67,16 +98,60 @@ class MainActivity : ComponentActivity() {
 
             if (isInitialized) {
                 val navController = rememberNavController()
-                OghmAINavHost(navController, textToSpeech)
+                OghmAINavHost(navController, textToSpeech, soundEffectsManager, sharedText)
             } else {
                 LoadingScreen()
             }
         }
     }
 
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+
+        // Handle new shared text when app is already running
+        val sharedText = extractSharedText(intent)
+        if (sharedText != null) {
+            // We need to restart the activity to pass the new intent
+            // This is a simple approach - a more sophisticated one would use a shared state
+            finish()
+            startActivity(intent)
+        }
+    }
+
+    private fun extractSharedText(intent: android.content.Intent?): String? {
+        if (intent?.action == android.content.Intent.ACTION_SEND &&
+            intent.type == "text/plain") {
+            val text = intent.getStringExtra(android.content.Intent.EXTRA_TEXT)
+
+            if (text.isNullOrBlank()) {
+                Log.w("MainActivity", "Received empty shared text")
+                return null
+            }
+
+            // Extract the first word from the shared text
+            // Handle cases where multiple words or sentences are shared
+            val firstWord = text.trim()
+                .split(Regex("\\s+")) // Split by whitespace
+                .firstOrNull()
+                ?.replace(Regex("[^a-zA-ZÀ-ÿ'-]"), "") // Remove non-letter characters except apostrophes and hyphens
+                ?.take(100) // Limit to 100 characters
+
+            if (firstWord.isNullOrBlank()) {
+                Log.w("MainActivity", "No valid word found in shared text: $text")
+                return null
+            }
+
+            Log.d("MainActivity", "Extracted shared word: $firstWord from text: $text")
+            return firstWord
+        }
+        return null
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         textToSpeech.shutdown()
+        soundEffectsManager.release()
     }
 }
 
@@ -115,6 +190,11 @@ fun MainMenuScreen(onNavigate: (String) -> Unit) {
                 text = "Settings",
                 icon = Icons.Default.Settings,
                 onClick = { onNavigate("settings") }
+            ),
+            OptionMenuItem(
+                text = "About",
+                icon = Icons.Default.Info,
+                onClick = { onNavigate("about") }
             )
         )
     ) { padding ->
@@ -139,6 +219,11 @@ fun MainMenuScreen(onNavigate: (String) -> Unit) {
                 name = "Test Knowledge",
                 onClick = { onNavigate("testWords") }
             )
+            MenuButton(
+                icon = { Icon(Icons.Default.Notifications, contentDescription = "") },
+                name = "Match Challenge",
+                onClick = { onNavigate("matchChallenge") }
+            )
         }
     }
 }
@@ -146,12 +231,22 @@ fun MainMenuScreen(onNavigate: (String) -> Unit) {
 // SettingsScreen moved to a separate file in ui package
 
 @Composable
-fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWrapper) {
+fun OghmAINavHost(
+    navController: NavHostController,
+    textToSpeech: TextToSpeechWrapper,
+    soundEffectsManager: SoundEffectsManager,
+    sharedText: String? = null
+) {
     // Check if a user is authenticated
     var isAuthenticated by remember { mutableStateOf(AuthManager.isSignedIn()) }
+    var pendingSharedText by remember { mutableStateOf(sharedText) }
 
-    // Determine the start destination based on authentication status
-    val startDestination = if (isAuthenticated) { "main" } else { "login" }
+    // Determine the start destination based on authentication status and shared text
+    val startDestination = when {
+        !isAuthenticated -> "login"
+        sharedText != null -> "discoverWord/$sharedText"
+        else -> "main"
+    }
 
     NavHost(navController, startDestination = startDestination,
         enterTransition = {
@@ -179,7 +274,18 @@ fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWr
             ) + fadeOut(animationSpec = tween(durationMillis = 300))
         }) {
         composable("login") {
-            LoginScreen(navController)
+            LoginScreen(navController, onLoginSuccess = {
+                if (pendingSharedText != null) {
+                    navController.navigate("discoverWord/$pendingSharedText") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                    pendingSharedText = null
+                } else {
+                    navController.navigate("main") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                }
+            })
         }
         composable("main") {
             // Check authentication status when navigating to the main screen
@@ -210,8 +316,11 @@ fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWr
         composable("settings") {
             SettingsScreen(navController)
         }
+        composable("about") {
+            AboutScreen(navController)
+        }
         composable("testWords") {
-            ChallengeScreen(navController, textToSpeech)
+            ChallengeScreen(navController, textToSpeech, soundEffectsManager)
         }
         composable("discoverWord/{word}") { backStackEntry ->
             val word = backStackEntry.arguments?.getString("word") ?: ""
@@ -225,6 +334,9 @@ fun OghmAINavHost(navController: NavHostController, textToSpeech: TextToSpeechWr
                 explanationType = "Tenses",
                 getExplanation = { RetrofitInstance.apiService.getWordTenses(it) }
             )
+        }
+        composable("matchChallenge") {
+            MatchChallengeScreen(navController, soundEffectsManager)
         }
     }
 }

@@ -36,7 +36,8 @@ fun WordResultCard(
     textToSpeech: TextToSpeechWrapper,
     modifier: Modifier = Modifier,
     isSaving: Boolean = false,
-    onSave: (() -> Unit)? = null // Optional Save action
+    onSave: (() -> Unit)? = null, // Optional Save action
+    previousStatus: WordStatus? = null // For animation when status changes
 ) {
     Card(
         modifier = modifier
@@ -248,9 +249,11 @@ fun WordResultCard(
                         }
                     }
                 } else {
-                    WordStatusBadge(
+                    AnimatedWordStatusBadge(
                         wordStatus = wordResult.status,
-                        modifier = Modifier.align(Alignment.End)
+                        previousStatus = previousStatus,
+                        modifier = Modifier.align(Alignment.End),
+                        showCelebration = true
                     )
                 }
             }

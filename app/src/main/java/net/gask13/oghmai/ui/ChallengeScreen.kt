@@ -31,6 +31,9 @@ import net.gask13.oghmai.network.RetrofitInstance
 import net.gask13.oghmai.services.TextToSpeechWrapper
 import net.gask13.oghmai.ui.components.ScaffoldWithTopBar
 import net.gask13.oghmai.ui.components.WordStatusBadge
+import net.gask13.oghmai.ui.components.AnimatedWordStatusBadge
+import net.gask13.oghmai.util.SnackbarManager
+import net.gask13.oghmai.util.SoundEffectsManager
 import retrofit2.HttpException
 
 // Custom Saver for TestChallenge
@@ -56,7 +59,7 @@ private val testChallengeSaver = Saver<TestChallenge?, List<String?>>(
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun ChallengeScreen(navController: NavController, textToSpeech: TextToSpeechWrapper) {
+fun ChallengeScreen(navController: NavController, textToSpeech: TextToSpeechWrapper, soundEffectsManager: SoundEffectsManager) {
     val coroutineScope = rememberCoroutineScope()
     var challenge by rememberSaveable(stateSaver = testChallengeSaver) { mutableStateOf(null) }
     var isLoading by rememberSaveable { mutableStateOf(true) }
@@ -136,9 +139,13 @@ fun ChallengeScreen(navController: NavController, textToSpeech: TextToSpeechWrap
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = if (resultState?.result == ResultEnum.CORRECT) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
                                 )
-                                resultState?.newStatus.let { status ->
+                                resultState?.let { result ->
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    WordStatusBadge(wordStatus = status!!)
+                                    AnimatedWordStatusBadge(
+                                        wordStatus = result.newStatus,
+                                        previousStatus = result.oldStatus,
+                                        showCelebration = true
+                                    )
                                 }
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Button(
@@ -250,23 +257,28 @@ fun ChallengeScreen(navController: NavController, textToSpeech: TextToSpeechWrap
                                     challenge = challenge?.copy(
                                         description = "${challenge!!.description}\n${result.suggestion}"
                                     )
-                                    snackbarHostState.showSnackbar(
-                                        message = "This is not the word we're looking for, but you're close!",
-                                        duration = SnackbarDuration.Short,
-                                        withDismissAction = true
+                                    SnackbarManager.showInfo(
+                                        snackbarHostState = snackbarHostState,
+                                        message = "This is not the word we're looking for, but you're close!"
                                     )
                                     userInput = ""
                                     focusRequester.requestFocus()
                                     keyboardController?.show() // Ensure the keyboard opens
                                 } else {
+                                    // Play sound based on result
+                                    if (result.result == ResultEnum.CORRECT) {
+                                        soundEffectsManager.playCorrectSound()
+                                    } else if (result.result == ResultEnum.INCORRECT) {
+                                        soundEffectsManager.playIncorrectSound()
+                                    }
                                     resultState = result
                                     userInput = ""
                                 }
                             } catch (e: Exception) {
-                                snackbarHostState.showSnackbar(
-                                    message = "Error submitting guess: ${e.message}",
-                                    duration = SnackbarDuration.Short,
-                                    withDismissAction = true
+                                SnackbarManager.showOperationError(
+                                    snackbarHostState = snackbarHostState,
+                                    operation = "submit",
+                                    exception = e
                                 )
                             } finally {
                                 isSubmitting = false
@@ -304,23 +316,16 @@ private fun fetchNextChallenge(
                 }
                 onResult(response.body())
             } else {
-                snackbarHostState.showSnackbar(
-                    message = "Error loading next test: ${response.errorBody()?.string()}",
-                    duration = SnackbarDuration.Short,
-                    withDismissAction = true
+                SnackbarManager.showInfo(
+                    snackbarHostState = snackbarHostState,
+                    message = "No more tests available"
                 )
             }
-        } catch (e: HttpException) {
-            snackbarHostState.showSnackbar(
-                message = "Error loading next test: ${e.message}",
-                duration = SnackbarDuration.Short,
-                withDismissAction = true
-            )
         } catch (e: Exception) {
-            snackbarHostState.showSnackbar(
-                message = "Unexpected error: ${e.message}",
-                duration = SnackbarDuration.Short,
-                withDismissAction = true
+            SnackbarManager.showOperationError(
+                snackbarHostState = snackbarHostState,
+                operation = "load",
+                exception = e
             )
         }
     }

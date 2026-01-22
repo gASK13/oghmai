@@ -39,6 +39,7 @@ import net.gask13.oghmai.network.RetrofitInstance
 import net.gask13.oghmai.services.TextToSpeechWrapper
 import net.gask13.oghmai.ui.components.ScaffoldWithTopBar
 import net.gask13.oghmai.ui.components.WordResultCard
+import net.gask13.oghmai.util.SnackbarManager
 
 /**
  * A unified screen that handles both word discovery and description.
@@ -61,6 +62,7 @@ fun WordDiscoveryScreen(
     var isLoading by remember { mutableStateOf(initialWord != null) }
     var isGuessing by rememberSaveable { mutableStateOf(false) }
     var isSaving by rememberSaveable { mutableStateOf(false) }
+    var previousStatusMap by remember { mutableStateOf<Map<String, WordStatus>>(emptyMap()) }
     val coroutineScope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -92,18 +94,17 @@ fun WordDiscoveryScreen(
                 if (result.isSuccessful && result.body() != null) {
                     results = listOf(result.body()!!)
                 } else {
-                    snackbarHostState.showSnackbar(
-                        message = "Word not found: ${result.errorBody()?.string()}",
-                        duration = SnackbarDuration.Short,
-                        withDismissAction = true
+                    SnackbarManager.showInfo(
+                        snackbarHostState = snackbarHostState,
+                        message = "Word not found"
                     )
                 }
                 isLoading = false
             } catch (e: Exception) {
-                snackbarHostState.showSnackbar(
-                    message = "Error loading word: ${e.message}",
-                    duration = SnackbarDuration.Short,
-                    withDismissAction = true
+                SnackbarManager.showOperationError(
+                    snackbarHostState = snackbarHostState,
+                    operation = "load",
+                    exception = e
                 )
                 isLoading = false
             }
@@ -173,14 +174,24 @@ fun WordDiscoveryScreen(
                                             if (wordResult.body() != null) {
                                                 results = listOf(wordResult.body()!!) + results
                                             } else {
-                                                snackbarHostState.showSnackbar("No more matches!", duration = SnackbarDuration.Short, withDismissAction = true)
+                                                SnackbarManager.showInfo(
+                                                    snackbarHostState = snackbarHostState,
+                                                    message = "No more matches!"
+                                                )
                                             }
                                         } else {
-                                            snackbarHostState.showSnackbar("Error: ${wordResult.errorBody()?.string()}", duration = SnackbarDuration.Short, withDismissAction = true)
+                                            SnackbarManager.showInfo(
+                                                snackbarHostState = snackbarHostState,
+                                                message = "No matching words found"
+                                            )
                                         }
                                         focusRequester.freeFocus()
                                     } catch (e: Exception) {
-                                        snackbarHostState.showSnackbar("Error: ${e.message}", duration = SnackbarDuration.Short, withDismissAction = true)
+                                        SnackbarManager.showOperationError(
+                                            snackbarHostState = snackbarHostState,
+                                            operation = "search",
+                                            exception = e
+                                        )
                                     } finally {
                                         isGuessing = false
                                     }
@@ -301,17 +312,21 @@ fun WordDiscoveryScreen(
                                 textToSpeech = textToSpeech,
                                 modifier = Modifier.fillParentMaxWidth().fillMaxHeight(),
                                 isSaving = isSaving,
+                                previousStatus = previousStatusMap[result.word],
                                 onSave = {
                                     isSaving = true
                                     coroutineScope.launch {
                                         try {
+                                            // Store the old status before saving
+                                            previousStatusMap = previousStatusMap + (result.word to result.status)
+
                                             RetrofitInstance.apiService.saveWord(result)
                                             result.status = WordStatus.NEW
                                         } catch (e: Exception) {
-                                            snackbarHostState.showSnackbar(
-                                                message = "Error saving word: ${e.message}",
-                                                duration = SnackbarDuration.Short,
-                                                withDismissAction = true
+                                            SnackbarManager.showOperationError(
+                                                snackbarHostState = snackbarHostState,
+                                                operation = "save",
+                                                exception = e
                                             )
                                         } finally {
                                             isSaving = false

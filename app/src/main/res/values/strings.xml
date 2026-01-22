@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">OghmAI</string>
+    <string name="notification_title">OghmAI</string>
+    <string name="notification_message">Come repeat %1$s words!</string>
 </resources>
