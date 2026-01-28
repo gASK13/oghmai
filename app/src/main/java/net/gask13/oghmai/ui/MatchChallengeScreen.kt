@@ -46,7 +46,7 @@ data class MatchCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MatchChallengeScreen(navController: NavController, soundEffectsManager: SoundEffectsManager) {
+fun MatchChallengeScreen(navController: NavController, soundEffectsManager: SoundEffectsManager, textToSpeech: net.gask13.oghmai.services.TextToSpeechWrapper) {
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -93,6 +93,11 @@ fun MatchChallengeScreen(navController: NavController, soundEffectsManager: Soun
                 val initialPairs = challenge.pairs.take(6)
                 gameCards = createGameCards(initialPairs)
                 remainingPairs = challenge.pairs.size - initialPairs.size
+            } else {
+                // If data failed to load, go back to menu
+                navController.navigate("main") {
+                    popUpTo("main") { inclusive = false }
+                }
             }
             isLoading = false
         }
@@ -122,6 +127,11 @@ fun MatchChallengeScreen(navController: NavController, soundEffectsManager: Soun
                 if (it.id == card.id) it.copy(isSelected = true) else it
             }
             selectedCard = card
+
+            // Read Italian word aloud when selected
+            if (card.isWord) {
+                textToSpeech.speak(card.text, "match_card_${card.id}")
+            }
             return
         }
 
@@ -138,6 +148,11 @@ fun MatchChallengeScreen(navController: NavController, soundEffectsManager: Soun
                 }
             }
             selectedCard = card
+
+            // Read Italian word aloud when selected
+            if (card.isWord) {
+                textToSpeech.speak(card.text, "match_card_${card.id}")
+            }
             return
         }
 
@@ -160,14 +175,15 @@ fun MatchChallengeScreen(navController: NavController, soundEffectsManager: Soun
             if (it.id == card.id) it.copy(isSelected = true) else it
         }
 
+        // Read Italian word aloud when selected
+        if (card.isWord) {
+            textToSpeech.speak(card.text, "match_card_${card.id}")
+        }
+
         // Immediately clear the selection state to allow new selections
         selectedCard = null
 
         if (isMatch) {
-            // Play correct sound
-            coroutineScope.launch {
-                soundEffectsManager.playCorrectSound()
-            }
 
             // Cards match - mark them as matched and start fade-out animation
             gameCards = gameCards.map {
@@ -227,11 +243,6 @@ fun MatchChallengeScreen(navController: NavController, soundEffectsManager: Soun
                 }
             }
         } else {
-            // Play incorrect sound
-            coroutineScope.launch {
-                soundEffectsManager.playIncorrectSound()
-            }
-
             // Launch coroutine to handle the incorrect match delay asynchronously
             coroutineScope.launch {
                 // Cards don't match - briefly show them, then deselect

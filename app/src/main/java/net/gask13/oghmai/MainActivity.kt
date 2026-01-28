@@ -336,7 +336,7 @@ fun OghmAINavHost(
             )
         }
         composable("matchChallenge") {
-            MatchChallengeScreen(navController, soundEffectsManager)
+            MatchChallengeScreen(navController, soundEffectsManager, textToSpeech)
         }
     }
 }
