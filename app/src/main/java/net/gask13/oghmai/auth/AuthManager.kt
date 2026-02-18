@@ -2,100 +2,100 @@ package net.gask13.oghmai.auth
 
 import android.content.Context
 import android.util.Log
-import com.amazonaws.mobile.client.AWSMobileClient
-import com.amazonaws.mobile.client.Callback
-import com.amazonaws.mobile.client.UserState
-import com.amazonaws.mobile.client.UserStateDetails
-import com.amazonaws.mobile.client.results.SignInResult
-import com.amazonaws.mobile.config.AWSConfiguration
+import com.amplifyframework.AmplifyException
+import com.amplifyframework.auth.AuthSession
+import com.amplifyframework.auth.AuthUser
+import com.amplifyframework.auth.cognito.AWSCognitoAuthPlugin
+import com.amplifyframework.auth.cognito.AWSCognitoAuthSession
+import com.amplifyframework.auth.options.AuthSignInOptions
+import com.amplifyframework.auth.result.AuthSignOutResult
+import com.amplifyframework.auth.result.step.AuthSignInStep
+import com.amplifyframework.core.Amplify
 import kotlinx.coroutines.suspendCancellableCoroutine
 import net.gask13.oghmai.BuildConfig
 import org.json.JSONObject
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
- * Manager class for handling authentication with AWS Cognito
+ * Manager class for handling authentication with AWS Amplify Cognito.
  */
 object AuthManager {
 
     private const val TAG = "AuthManager"
 
+    @Volatile
+    private var initialized = false
+
     /**
-     * Initialize the AWS Mobile Client and Credentials Manager
-     * This method will also attempt to restore the previous authentication state
+     * Initialize Amplify and restore persisted authentication state.
      */
-    suspend fun initialize(context : Context): Boolean = suspendCancellableCoroutine { continuation ->
+    suspend fun initialize(context: Context): Boolean = suspendCancellableCoroutine { continuation ->
+        if (initialized) {
+            continuation.resume(true)
+            return@suspendCancellableCoroutine
+        }
+
         try {
-            // Get Cognito configuration from BuildConfig
-            val poolId = BuildConfig.COGNITO_POOL_ID
-            val clientId = BuildConfig.COGNITO_CLIENT_ID
-            val region = BuildConfig.COGNITO_REGION
+            val configJson = getAmplifyConfigJson(
+                poolId = BuildConfig.COGNITO_POOL_ID,
+                clientId = BuildConfig.COGNITO_CLIENT_ID,
+                region = BuildConfig.COGNITO_REGION
+            )
 
-            // Log the configuration values
-            Log.d(TAG, "Using Cognito configuration from BuildConfig")
-            Log.d(TAG, "Region: $region, Pool ID: $poolId, Client ID: $clientId")
-            val configJson = getCognitoConfigJson(poolId, clientId, region)
+            Log.d(TAG, "Configuring Amplify Auth with BuildConfig Cognito values")
+            Amplify.addPlugin(AWSCognitoAuthPlugin())
+            Amplify.configure(configJson, context.applicationContext)
+            initialized = true
 
-            // Create AWSConfiguration from the JSON object
-            val awsConfiguration = AWSConfiguration(configJson)
-
-            // Initialize with the configuration
-            AWSMobileClient.getInstance().initialize(context, awsConfiguration, object : Callback<UserStateDetails> {
-                override fun onResult(result: UserStateDetails) {
-                    Log.i(TAG, "AWSMobileClient initialized. User State: ${result.userState}")
-
-                    // Check if we have a persisted session
-                    if (result.userState == UserState.SIGNED_IN) {
-                        Log.i(TAG, "User is already signed in from a previous session")
-
-                        // Refresh tokens if needed
-                        refreshTokensIfNeeded()
-                    } else {
-                        Log.i(TAG, "No previous session found, user needs to sign in")
-                    }
-
+            Amplify.Auth.fetchAuthSession(
+                {
+                    Log.i(TAG, "Amplify initialized and auth session fetched")
                     continuation.resume(true)
+                },
+                { error ->
+                    Log.e(TAG, "Failed to fetch auth session after Amplify init", error)
+                    continuation.resumeWithException(error)
                 }
-
-                override fun onError(e: Exception) {
-                    Log.e(TAG, "Error initializing AWSMobileClient", e)
-                    continuation.resumeWithException(e)
-                }
-            })
+            )
+        } catch (alreadyConfigured: AmplifyException) {
+            Log.w(TAG, "Amplify already configured, continuing", alreadyConfigured)
+            initialized = true
+            continuation.resume(true)
         } catch (e: Exception) {
-            Log.e(TAG, "Error in initialize", e)
+            Log.e(TAG, "Error initializing Amplify", e)
             continuation.resumeWithException(e)
         }
     }
 
-    private fun getCognitoConfigJson(poolId: String, clientId: String, region: String): JSONObject {
-        // Create a JSON configuration object
-        val cognitoConfig = JSONObject().apply {
+    private fun getAmplifyConfigJson(poolId: String, clientId: String, region: String): JSONObject {
+        val userPool = JSONObject().apply {
             put("PoolId", poolId)
             put("AppClientId", clientId)
             put("Region", region)
         }
 
-        val defaultCognitoConfig = JSONObject().apply {
-            put("Default", cognitoConfig)
+        val pluginConfig = JSONObject().apply {
+            put("CognitoUserPool", JSONObject().put("Default", userPool))
+            put("Auth", JSONObject().put("Default", JSONObject()))
         }
 
-        val identityManager = JSONObject().apply {
-            put("Default", JSONObject())
+        return JSONObject().apply {
+            put(
+                "auth",
+                JSONObject().put(
+                    "plugins",
+                    JSONObject().put("awsCognitoAuthPlugin", pluginConfig)
+                )
+            )
         }
-
-        val configJson = JSONObject().apply {
-            put("IdentityManager", identityManager)
-            put("CognitoUserPool", defaultCognitoConfig)
-        }
-        return configJson
     }
 
     fun isSignedIn(): Boolean {
         return try {
-            val userState = AWSMobileClient.getInstance().currentUserState().userState
-            userState == UserState.SIGNED_IN
+            fetchAuthSessionSync()?.isSignedIn == true
         } catch (e: Exception) {
             Log.e(TAG, "Error checking sign-in status", e)
             false
@@ -104,91 +104,76 @@ object AuthManager {
 
     fun getCurrentUsername(): String? {
         return try {
-            if (isSignedIn()) {
-                AWSMobileClient.getInstance().username
-            } else {
-                null
-            }
+            val user: AuthUser = Amplify.Auth.getCurrentUser()
+            user.username
         } catch (e: Exception) {
             Log.e(TAG, "Error getting current username", e)
             null
         }
     }
 
-    suspend fun signIn(username: String, password: String): SignInResult = suspendCancellableCoroutine { continuation ->
-        try {
-            AWSMobileClient.getInstance().signIn(username, password, null, object : Callback<SignInResult> {
-                override fun onResult(result: SignInResult) {
-                    Log.i(TAG, "Sign-in result: ${result.signInState}")
-
-                    // The AWSMobileClient already persists the session by default
-                    // We just need to make sure it's refreshed
-                    refreshTokensIfNeeded()
-
-                    continuation.resume(result)
-                }
-
-                override fun onError(e: Exception) {
-                    Log.e(TAG, "Error during sign-in", e)
-                    continuation.resumeWithException(e)
-                }
-            })
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in signIn", e)
-            continuation.resumeWithException(e)
-        }
+    suspend fun signIn(username: String, password: String): Boolean = suspendCancellableCoroutine { continuation ->
+        Amplify.Auth.signIn(
+            username,
+            password,
+            AuthSignInOptions.defaults(),
+            { result ->
+                val signInComplete = result.isSignedIn && result.nextStep.signInStep == AuthSignInStep.DONE
+                Log.i(TAG, "Sign-in completed=$signInComplete, nextStep=${result.nextStep.signInStep}")
+                continuation.resume(signInComplete)
+            },
+            { error ->
+                Log.e(TAG, "Error during sign-in", error)
+                continuation.resumeWithException(error)
+            }
+        )
     }
 
-
     suspend fun signOut(): Boolean = suspendCancellableCoroutine { continuation ->
-        try {
-            // Simple sign out without options
-            AWSMobileClient.getInstance().signOut()
-            Log.i(TAG, "Sign-out completed")
-            continuation.resume(true)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in signOut", e)
-            continuation.resumeWithException(e)
+        Amplify.Auth.signOut { result ->
+            val complete = result is AuthSignOutResult.CompleteSignOut
+            Log.i(TAG, "Sign-out completed=$complete")
+            continuation.resume(complete)
         }
     }
 
     fun getAuthToken(): String? {
         return try {
-            if (isSignedIn()) {
-                val tokens = AWSMobileClient.getInstance().tokens
-                tokens.idToken.tokenString
-            } else {
-                null
-            }
+            val authSession = fetchAuthSessionSync() as? AWSCognitoAuthSession
+            authSession?.userPoolTokensResult?.value?.idToken
         } catch (e: Exception) {
             Log.e(TAG, "Error getting authentication token", e)
             null
         }
     }
 
-    private fun refreshTokensIfNeeded() {
-        try {
-            if (isSignedIn()) {
-                // Get current tokens - this will automatically refresh if needed
-                AWSMobileClient.getInstance().tokens
-                Log.d(TAG, "Tokens refreshed if needed")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error refreshing tokens", e)
-        }
-    }
-
     fun validateSession(): Boolean {
         return try {
-            if (isSignedIn()) {
-                refreshTokensIfNeeded()
-                true
-            } else {
-                false
-            }
+            isSignedIn()
         } catch (e: Exception) {
             Log.e(TAG, "Error validating session", e)
             false
         }
+    }
+
+    private fun fetchAuthSessionSync(): AuthSession? {
+        val latch = CountDownLatch(1)
+        val sessionRef = AtomicReference<AuthSession?>(null)
+        val errorRef = AtomicReference<Throwable?>(null)
+
+        Amplify.Auth.fetchAuthSession(
+            { session ->
+                sessionRef.set(session)
+                latch.countDown()
+            },
+            { error ->
+                errorRef.set(error)
+                latch.countDown()
+            }
+        )
+
+        latch.await()
+        errorRef.get()?.let { throw it }
+        return sessionRef.get()
     }
 }

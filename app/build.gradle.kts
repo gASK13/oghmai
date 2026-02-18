@@ -92,10 +92,11 @@ dependencies {
     implementation(libs.converter.gson)
     implementation(libs.logging.interceptor)
 
-    // AWS Cognito dependencies
+    // AWS Amplify + AWS SDK for Kotlin dependencies
+    implementation(libs.amplify.core)
     implementation(libs.aws.auth.cognito)
-    implementation(libs.aws.android.sdk.cognitoidentityprovider)
-    implementation(libs.aws.android.sdk.mobile.client)
+    implementation(libs.aws.sdk.kotlin.s3)
+    implementation(libs.aws.sdk.kotlin.cognitoidentityprovider)
 
     // Credentials API
     implementation(libs.androidx.credentials)
