@@ -60,6 +60,7 @@ data class WordResult(
     val lastTest: Timestamp?,
     val testResults: List<Boolean>,
     var status: WordStatus,
+    var language: String = "IT"
 )
 
 data class WordItem(
@@ -70,7 +71,8 @@ data class WordItem(
 
 data class DescriptionRequest(
     val description: String,
-    val exclusions: List<String>? = null
+    val exclusions: List<String>? = null,
+    val language: String = "IT"
 )
 
 data class WordList(

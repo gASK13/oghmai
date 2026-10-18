@@ -35,6 +35,10 @@ object RetrofitInstance {
             addInterceptor(AuthInterceptor())
             Log.d(TAG, "Added AuthInterceptor to OkHttpClient")
 
+            // Add language interceptor
+            addInterceptor(LanguageInterceptor())
+            Log.d(TAG, "Added LanguageInterceptor to OkHttpClient")
+
             // Add error handling interceptor
             addInterceptor(errorHandlingInterceptor)
         }.build()

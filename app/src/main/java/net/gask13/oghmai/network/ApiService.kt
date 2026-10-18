@@ -18,35 +18,56 @@ interface ApiService {
     suspend fun describeWord(@Body word: DescriptionRequest): Response<WordResult>
 
     @DELETE("words")
-    suspend fun purgeWords()
+    suspend fun purgeWords(@Query("language") language: String? = null)
 
     @POST("word")
     suspend fun saveWord(@Body word: WordResult)
 
     // Status is a comma-delimited list of WordStatus values
     @GET("words")
-    suspend fun getWords(@Query("status") status: String? = null, @Query("failed_last_test") failedLastTest: Boolean? = null, @Query("contains") contains: String? = null ): WordList
+    suspend fun getWords(
+        @Query("status") status: String? = null,
+        @Query("failed_last_test") failedLastTest: Boolean? = null,
+        @Query("contains") contains: String? = null,
+        @Query("language") language: String? = null
+    ): WordList
 
     @GET("word/{word}")
-    suspend fun getWord(@Path("word") word: String): WordResult
+    suspend fun getWord(
+        @Path("word") word: String,
+        @Query("language") language: String? = null
+    ): WordResult
 
     @DELETE("word/{word}")
-    suspend fun deleteWord(@Path("word") word: String)
+    suspend fun deleteWord(
+        @Path("word") word: String,
+        @Query("language") language: String? = null
+    )
 
     @GET("word/{word}/tenses")
-    suspend fun getWordTenses(@Path("word") word: String): ExplanationResponse
+    suspend fun getWordTenses(
+        @Path("word") word: String,
+        @Query("language") language: String? = null
+    ): ExplanationResponse
 
     @PATCH("word/{word}")
-    suspend fun patchWord(@Path("word") word: String, @Query("action") action: WordActionEnum)
+    suspend fun patchWord(
+        @Path("word") word: String,
+        @Query("action") action: WordActionEnum,
+        @Query("language") language: String? = null
+    )
 
     @PATCH("words")
-    suspend fun patchWords(@Query("action") action: WordActionEnum)
+    suspend fun patchWords(
+        @Query("action") action: WordActionEnum,
+        @Query("language") language: String? = null
+    )
 
     @GET("test")
-    suspend fun getAvailableTests(): TestStatistics
+    suspend fun getAvailableTests(@Query("language") language: String? = null): TestStatistics
 
     @GET("test/next")
-    suspend fun getNextTest(): Response<TestChallenge>
+    suspend fun getNextTest(@Query("language") language: String? = null): Response<TestChallenge>
 
     @PUT("test/{id}")
     suspend fun submitChallengeGuess(
@@ -57,5 +78,6 @@ interface ApiService {
     @GET("test/match")
     suspend fun getNextMatchTest(
         @Query("count") count: Int = 20,
+        @Query("language") language: String? = null
     ): MatchChallenge
 }

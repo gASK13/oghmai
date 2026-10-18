@@ -27,6 +27,7 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import net.gask13.oghmai.auth.AuthManager
+import net.gask13.oghmai.model.AppLanguage
 import net.gask13.oghmai.notifications.NotificationHelper
 import net.gask13.oghmai.notifications.NotificationScheduler
 import net.gask13.oghmai.preferences.PreferencesManager
@@ -37,15 +38,18 @@ import net.gask13.oghmai.ui.components.ScaffoldWithTopBar
 @Composable
 fun SettingsScreen(
     navController: NavController,
-    version: String = "v0.1-dev",
-    language: String = "Italian"
+    textToSpeech: TextToSpeechWrapper? = null,
+    version: String = "v0.1-dev"
 ) {
     val context = LocalContext.current
     val username = AuthManager.getCurrentUsername() ?: "Not logged in"
     val coroutineScope = rememberCoroutineScope()
     var isLoggingOut by remember { mutableStateOf(false) }
 
-    val preferencesManager = remember { PreferencesManager(context) }
+    val preferencesManager = remember { PreferencesManager.getInstance(context) }
+    var selectedLanguage by remember { mutableStateOf(preferencesManager.getAppLanguage()) }
+    var showLanguageDropdown by remember { mutableStateOf(false) }
+
     var notificationsEnabled by remember { mutableStateOf(preferencesManager.isNotificationsEnabled()) }
     val notificationHour = remember { mutableStateOf(preferencesManager.getNotificationHour()) }
     val notificationMinute = remember { mutableStateOf(preferencesManager.getNotificationMinute()) }
@@ -53,24 +57,11 @@ fun SettingsScreen(
     // Voice settings
     var speechRate by remember { mutableStateOf(preferencesManager.getTtsSpeechRate()) }
     var pitch by remember { mutableStateOf(preferencesManager.getTtsPitch()) }
-    var selectedVoiceName by remember { mutableStateOf(preferencesManager.getTtsVoice()) }
+    var selectedVoiceName by remember { mutableStateOf(preferencesManager.getTtsVoice(selectedLanguage.code)) }
     var availableVoices by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var showVoiceDropdown by remember { mutableStateOf(false) }
-    val ttsWrapper = remember { TextToSpeechWrapper() }
-
-    // Italian pop-culture phrases for TTS testing
-    val italianTestPhrases = remember {
-        listOf(
-            "Mamma mia!",
-            "Squadra azzurra",
-            "Bella Italia",
-            "Dolce vita",
-            "Arrivederci",
-            "Che bella giornata!",
-            "Ciao bella!",
-            "Molto bene"
-        )
-    }
+    val ttsWrapper = remember(textToSpeech) { textToSpeech ?: TextToSpeechWrapper() }
+    val shouldManageTtsLifecycle = textToSpeech == null
 
     // Snackbar state for showing the selected phrase
     val snackbarHostState = remember { SnackbarHostState() }
@@ -81,14 +72,32 @@ fun SettingsScreen(
     var notificationsExpanded by remember { mutableStateOf(false) }
     var voiceExpanded by remember { mutableStateOf(false) }
 
-    DisposableEffect(Unit) {
-        ttsWrapper.initializeTextToSpeech(context) {
-            // Once TTS is initialized, get available voices
-            availableVoices = ttsWrapper.getAvailableVoices()
+    DisposableEffect(ttsWrapper) {
+        if (shouldManageTtsLifecycle) {
+            ttsWrapper.initializeTextToSpeech(context) {
+                ttsWrapper.setLanguage(selectedLanguage)
+                availableVoices = ttsWrapper.getAvailableVoices(selectedLanguage)
+                selectedVoiceName = preferencesManager.getTtsVoice(selectedLanguage.code)
+            }
+        } else {
+            ttsWrapper.setLanguage(selectedLanguage)
+            availableVoices = ttsWrapper.getAvailableVoices(selectedLanguage)
+            selectedVoiceName = preferencesManager.getTtsVoice(selectedLanguage.code)
         }
         onDispose {
-            ttsWrapper.shutdown()
+            if (shouldManageTtsLifecycle) {
+                ttsWrapper.shutdown()
+            }
         }
+    }
+
+    fun onLanguageSelected(lang: AppLanguage) {
+        selectedLanguage = lang
+        preferencesManager.setAppLanguage(lang)
+        ttsWrapper.setLanguage(lang)
+        availableVoices = ttsWrapper.getAvailableVoices(lang)
+        selectedVoiceName = preferencesManager.getTtsVoice(lang.code)
+        showLanguageDropdown = false
     }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -158,14 +167,46 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "Current Language",
+                        text = "Learning Language",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Text(
+                        text = "Choose the language you are currently learning",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text(
-                        text = language,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
+
+                    ExposedDropdownMenuBox(
+                        expanded = showLanguageDropdown,
+                        onExpandedChange = { showLanguageDropdown = it }
+                    ) {
+                        OutlinedTextField(
+                            value = "${selectedLanguage.displayName} (${selectedLanguage.code})",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Selected Language") },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = showLanguageDropdown)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(),
+                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                        )
+
+                        ExposedDropdownMenu(
+                            expanded = showLanguageDropdown,
+                            onDismissRequest = { showLanguageDropdown = false }
+                        ) {
+                            AppLanguage.entries.forEach { lang ->
+                                DropdownMenuItem(
+                                    text = { Text("${lang.displayName} (${lang.code})") },
+                                    onClick = { onLanguageSelected(lang) },
+                                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -267,28 +308,29 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     // Voice Selection
-                    if (availableVoices.isNotEmpty()) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = "Voice",
-                                style = MaterialTheme.typography.titleSmall
-                            )
-                            Text(
-                                text = "Choose which voice to use for Italian pronunciation",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Voice",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Text(
+                            text = "Choose which voice to use for ${selectedLanguage.displayName} pronunciation",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
 
+                        if (availableVoices.isNotEmpty()) {
                             // Voice dropdown
                             ExposedDropdownMenuBox(
                                 expanded = showVoiceDropdown,
                                 onExpandedChange = { showVoiceDropdown = it }
                             ) {
                                 OutlinedTextField(
-                                    value = availableVoices.find { it.first == selectedVoiceName }?.second ?: selectedVoiceName,
+                                    value = availableVoices.find { it.first == selectedVoiceName }?.second
+                                        ?: if (selectedVoiceName.isNotEmpty()) selectedVoiceName else "Default (${selectedLanguage.displayName})",
                                     onValueChange = {},
                                     readOnly = true,
                                     label = { Text("Selected Voice") },
@@ -310,7 +352,7 @@ fun SettingsScreen(
                                             text = { Text(displayName) },
                                             onClick = {
                                                 selectedVoiceName = voiceName
-                                                preferencesManager.setTtsVoice(voiceName)
+                                                preferencesManager.setTtsVoice(voiceName, selectedLanguage.code)
                                                 ttsWrapper.setVoice(voiceName)
                                                 showVoiceDropdown = false
                                             },
@@ -319,6 +361,12 @@ fun SettingsScreen(
                                     }
                                 }
                             }
+                        } else {
+                            Text(
+                                text = "No installed voice models found for ${selectedLanguage.displayName}. System default voice will be used.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.outline
+                            )
                         }
                     }
 
@@ -421,12 +469,15 @@ fun SettingsScreen(
                         )
                         Button(
                             onClick = {
-                                val randomPhrase = italianTestPhrases.random()
+                                val randomPhrase = selectedLanguage.testPhrases.random()
                                 ttsWrapper.speak(randomPhrase, "preview_utterance")
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar("Speaking: \"$randomPhrase\"")
+                                }
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Test Voice with Current Settings")
+                            Text("Test Voice (${selectedLanguage.displayName})")
                         }
                     }
                 }
