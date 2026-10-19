@@ -42,7 +42,9 @@ fun SettingsScreen(
     version: String = "v0.1-dev"
 ) {
     val context = LocalContext.current
-    val username = AuthManager.getCurrentUsername() ?: "Not logged in"
+    val username by produceState("Not logged in") {
+        value = AuthManager.getCurrentUsername() ?: "Not logged in"
+    }
     val coroutineScope = rememberCoroutineScope()
     var isLoggingOut by remember { mutableStateOf(false) }
 
