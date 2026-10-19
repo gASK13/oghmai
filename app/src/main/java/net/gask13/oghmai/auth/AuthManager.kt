@@ -4,13 +4,13 @@ import android.content.Context
 import android.util.Log
 import com.amplifyframework.AmplifyException
 import com.amplifyframework.auth.AuthSession
-import com.amplifyframework.auth.AuthUser
 import com.amplifyframework.auth.cognito.AWSCognitoAuthPlugin
 import com.amplifyframework.auth.cognito.AWSCognitoAuthSession
+import com.amplifyframework.auth.cognito.result.AWSCognitoAuthSignOutResult
 import com.amplifyframework.auth.options.AuthSignInOptions
-import com.amplifyframework.auth.result.AuthSignOutResult
 import com.amplifyframework.auth.result.step.AuthSignInStep
 import com.amplifyframework.core.Amplify
+import com.amplifyframework.core.AmplifyConfiguration
 import kotlinx.coroutines.suspendCancellableCoroutine
 import net.gask13.oghmai.BuildConfig
 import org.json.JSONObject
@@ -47,7 +47,7 @@ object AuthManager {
 
             Log.d(TAG, "Configuring Amplify Auth with BuildConfig Cognito values")
             Amplify.addPlugin(AWSCognitoAuthPlugin())
-            Amplify.configure(configJson, context.applicationContext)
+            Amplify.configure(AmplifyConfiguration.fromJson(configJson), context.applicationContext)
             initialized = true
 
             Amplify.Auth.fetchAuthSession(
@@ -102,14 +102,14 @@ object AuthManager {
         }
     }
 
-    fun getCurrentUsername(): String? {
-        return try {
-            val user: AuthUser = Amplify.Auth.getCurrentUser()
-            user.username
-        } catch (e: Exception) {
-            Log.e(TAG, "Error getting current username", e)
-            null
-        }
+    suspend fun getCurrentUsername(): String? = suspendCancellableCoroutine { continuation ->
+        Amplify.Auth.getCurrentUser(
+            { user -> continuation.resume(user.username) },
+            { error ->
+                Log.e(TAG, "Error getting current username", error)
+                continuation.resume(null)
+            }
+        )
     }
 
     suspend fun signIn(username: String, password: String): Boolean = suspendCancellableCoroutine { continuation ->
@@ -131,7 +131,7 @@ object AuthManager {
 
     suspend fun signOut(): Boolean = suspendCancellableCoroutine { continuation ->
         Amplify.Auth.signOut { result ->
-            val complete = result is AuthSignOutResult.CompleteSignOut
+            val complete = (result as? AWSCognitoAuthSignOutResult)?.signedOutLocally == true
             Log.i(TAG, "Sign-out completed=$complete")
             continuation.resume(complete)
         }
