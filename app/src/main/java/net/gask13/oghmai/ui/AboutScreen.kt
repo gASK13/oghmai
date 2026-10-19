@@ -60,7 +60,7 @@ fun AboutScreen(navController: NavController) {
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "An AI-powered vocabulary coach for language learning, focused on Italian vocabulary through natural language interactions.",
+                        text = "An AI-powered vocabulary coach for language learning through natural language interactions, supporting Italian, German, and Greek.",
                         style = MaterialTheme.typography.bodyLarge,
                         textAlign = TextAlign.Center
                     )

@@ -5,6 +5,8 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.Saver
@@ -15,15 +17,20 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.intl.Locale
+import androidx.compose.ui.text.intl.LocaleList
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import net.gask13.oghmai.R
+import net.gask13.oghmai.preferences.PreferencesManager
 import net.gask13.oghmai.model.ResultEnum
 import net.gask13.oghmai.model.TestChallenge
 import net.gask13.oghmai.model.TestResult
@@ -67,7 +74,10 @@ fun ChallengeScreen(navController: NavController, textToSpeech: TextToSpeechWrap
     var resultState by remember { mutableStateOf<TestResult?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val focusRequester = remember { FocusRequester() }
+    val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val preferencesManager = remember { PreferencesManager.getInstance(context) }
+    val currentLanguage = preferencesManager.getAppLanguage()
     var isSubmitting by rememberSaveable { mutableStateOf(false) }
 
     // Flag to track if we've already loaded a challenge
@@ -245,7 +255,12 @@ fun ChallengeScreen(navController: NavController, textToSpeech: TextToSpeechWrap
                     label = { Text("Your Answer") },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusRequester(focusRequester)
+                        .focusRequester(focusRequester),
+                    keyboardOptions = KeyboardOptions.Default.copy(
+                        imeAction = ImeAction.Done,
+                        hintLocales = LocaleList(Locale(currentLanguage.speechTag))
+                    ),
+                    keyboardActions = KeyboardActions(onDone = { focusRequester.freeFocus() })
                 )
                 Button(
                     onClick = {

@@ -1,14 +1,14 @@
 package net.gask13.oghmai.services
 
+import android.content.Context
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
-import java.util.Locale
-import android.content.Context
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import net.gask13.oghmai.model.AppLanguage
 import net.gask13.oghmai.preferences.PreferencesManager
 
 class TextToSpeechWrapper {
@@ -33,18 +33,49 @@ class TextToSpeechWrapper {
         }
     }
 
-    private fun applyVoiceSettings() {
+    fun setLanguage(appLanguage: AppLanguage) {
+        if (this::textToSpeech.isInitialized) {
+            textToSpeech.language = appLanguage.locale
+            applyVoiceSettings(appLanguage)
+        }
+    }
+
+    fun applyVoiceSettings(appLanguage: AppLanguage? = null) {
+        if (!this::textToSpeech.isInitialized) return
+
         preferencesManager?.let { prefs ->
+            val lang = appLanguage ?: prefs.getAppLanguage()
             val speechRate = prefs.getTtsSpeechRate()
             val pitch = prefs.getTtsPitch()
-            val voiceName = prefs.getTtsVoice()
+            val voiceName = prefs.getTtsVoice(lang.code)
 
             textToSpeech.setSpeechRate(speechRate)
             textToSpeech.setPitch(pitch)
 
-            // Apply voice if set
+            // Apply selected voice if set
+            var voiceApplied = false
             if (voiceName.isNotEmpty()) {
-                setVoice(voiceName)
+                textToSpeech.voices?.find { it.name == voiceName }?.let { voice ->
+                    textToSpeech.voice = voice
+                    voiceApplied = true
+                    Log.d("TextToSpeechWrapper", "Voice set to: ${voice.name}")
+                }
+            }
+
+            // Fallback to default voice matching current language if none set or not found
+            if (!voiceApplied) {
+                val matchingVoice = textToSpeech.voices?.firstOrNull { voice ->
+                    lang.isoLanguages.contains(voice.locale.language.lowercase()) && !voice.isNetworkConnectionRequired
+                } ?: textToSpeech.voices?.firstOrNull { voice ->
+                    lang.isoLanguages.contains(voice.locale.language.lowercase())
+                }
+
+                if (matchingVoice != null) {
+                    textToSpeech.voice = matchingVoice
+                    Log.d("TextToSpeechWrapper", "Default voice applied for ${lang.displayName}: ${matchingVoice.name}")
+                } else {
+                    textToSpeech.language = lang.locale
+                }
             }
         }
     }
@@ -70,24 +101,32 @@ class TextToSpeechWrapper {
         }
     }
 
-    fun getAvailableVoices(): List<Pair<String, String>> {
+    fun getAvailableVoices(appLanguage: AppLanguage? = null): List<Pair<String, String>> {
         if (!this::textToSpeech.isInitialized) {
             return emptyList()
         }
 
-        val italianVoices = textToSpeech.voices?.filter { voice ->
-            !voice.isNetworkConnectionRequired && (voice.locale.language == "it" || voice.locale.language == "ita")
-        }?.map { voice ->
+        val lang = appLanguage ?: preferencesManager?.getAppLanguage() ?: AppLanguage.DEFAULT
+
+        val allVoicesForLang = textToSpeech.voices?.filter { voice ->
+            lang.isoLanguages.contains(voice.locale.language.lowercase())
+        } ?: emptyList()
+
+        val offlineVoices = allVoicesForLang.filter { !it.isNetworkConnectionRequired }
+        val candidateVoices = if (offlineVoices.isNotEmpty()) offlineVoices else allVoicesForLang
+
+        val result = candidateVoices.map { voice ->
             val displayName = buildVoiceDisplayName(voice)
             Pair(voice.name, displayName)
-        }?.sortedBy { it.second } ?: emptyList()
+        }.sortedBy { it.second }
 
-        Log.d("TextToSpeechWrapper", "Found ${italianVoices.size} Italian voices")
-        return italianVoices
+        Log.d("TextToSpeechWrapper", "Found ${result.size} ${lang.displayName} voices")
+        return result
     }
 
     private fun buildVoiceDisplayName(voice: Voice): String {
-        return voice.name
+        val networkSuffix = if (voice.isNetworkConnectionRequired) " (Network)" else ""
+        return "${voice.name}$networkSuffix"
     }
 
     fun shutdown() {
@@ -99,11 +138,12 @@ class TextToSpeechWrapper {
 
     fun initializeTextToSpeech(ctx : Context, onInitialized: (() -> Unit)? = null) {
         onInitCallback = onInitialized
-        preferencesManager = PreferencesManager(ctx)
+        preferencesManager = PreferencesManager.getInstance(ctx)
         textToSpeech = TextToSpeech(ctx) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                textToSpeech.language = Locale.ITALIAN
-                applyVoiceSettings()
+                val currentLang = preferencesManager?.getAppLanguage() ?: AppLanguage.DEFAULT
+                textToSpeech.language = currentLang.locale
+                applyVoiceSettings(currentLang)
                 onInitCallback?.invoke()
             } else {
                 Log.e("TextToSpeechWrapper", "TTS initialization failed with status: $status")

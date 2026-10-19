@@ -27,6 +27,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.intl.Locale
+import androidx.compose.ui.text.intl.LocaleList
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -36,6 +38,7 @@ import net.gask13.oghmai.model.DescriptionRequest
 import net.gask13.oghmai.model.WordResult
 import net.gask13.oghmai.model.WordStatus
 import net.gask13.oghmai.network.RetrofitInstance
+import net.gask13.oghmai.preferences.PreferencesManager
 import net.gask13.oghmai.services.TextToSpeechWrapper
 import net.gask13.oghmai.ui.components.ScaffoldWithTopBar
 import net.gask13.oghmai.ui.components.WordResultCard
@@ -68,6 +71,8 @@ fun WordDiscoveryScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val preferencesManager = remember { PreferencesManager.getInstance(context) }
+    val currentLanguage = preferencesManager.getAppLanguage()
 
     // Determine if we're in "discover" mode (specific word) or "describe" mode (general input)
     val isDiscoverMode = initialWord != null
@@ -90,7 +95,12 @@ fun WordDiscoveryScreen(
     LaunchedEffect(initialWord) {
         if (initialWord != null) {
             try {
-                val result = RetrofitInstance.apiService.describeWord(DescriptionRequest(initialWord))
+                val result = RetrofitInstance.apiService.describeWord(
+                    DescriptionRequest(
+                        description = initialWord,
+                        language = currentLanguage.code
+                    )
+                )
                 if (result.isSuccessful && result.body() != null) {
                     results = listOf(result.body()!!)
                 } else {
@@ -135,14 +145,17 @@ fun WordDiscoveryScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(focusRequester),
-                        keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
+                        keyboardOptions = KeyboardOptions.Default.copy(
+                            imeAction = ImeAction.Done,
+                            hintLocales = LocaleList(Locale(currentLanguage.speechTag))
+                        ),
                         keyboardActions = KeyboardActions(onDone = { focusRequester.freeFocus() }),
                         enabled = !isGuessing && !isSaving,
                         trailingIcon = {
                             IconButton(onClick = {
                                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "it-IT") // Set to Italian
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, currentLanguage.speechTag)
                                     putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now")
                                 }
                                 speechRecognizerLauncher.launch(intent)
@@ -168,7 +181,11 @@ fun WordDiscoveryScreen(
                                 coroutineScope.launch {
                                     try {
                                         val wordResult = RetrofitInstance.apiService.describeWord(
-                                            DescriptionRequest(inputText, results.map { it.word })
+                                            DescriptionRequest(
+                                                description = inputText,
+                                                exclusions = results.map { it.word },
+                                                language = currentLanguage.code
+                                            )
                                         )
                                         if (wordResult.isSuccessful) {
                                             if (wordResult.body() != null) {
@@ -320,6 +337,9 @@ fun WordDiscoveryScreen(
                                             // Store the old status before saving
                                             previousStatusMap = previousStatusMap + (result.word to result.status)
 
+                                            if (result.language.isEmpty()) {
+                                                result.language = currentLanguage.code
+                                            }
                                             RetrofitInstance.apiService.saveWord(result)
                                             result.status = WordStatus.NEW
                                         } catch (e: Exception) {

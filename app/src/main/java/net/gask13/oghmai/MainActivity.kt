@@ -314,7 +314,7 @@ fun OghmAINavHost(
             WordDetailScreen(word, navController,  textToSpeech)
         }
         composable("settings") {
-            SettingsScreen(navController)
+            SettingsScreen(navController, textToSpeech)
         }
         composable("about") {
             AboutScreen(navController)
