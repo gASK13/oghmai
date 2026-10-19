@@ -1,5 +1,7 @@
 package net.gask13.oghmai.model
 
+import androidx.annotation.DrawableRes
+import net.gask13.oghmai.R
 import java.util.Locale
 
 enum class AppLanguage(
@@ -8,7 +10,9 @@ enum class AppLanguage(
     val locale: Locale,
     val speechTag: String,
     val isoLanguages: Set<String>,
-    val testPhrases: List<String>
+    val testPhrases: List<String>,
+    @DrawableRes val flagRes: Int,
+    val joke: String
 ) {
     ITALIAN(
         code = "IT",
@@ -25,7 +29,9 @@ enum class AppLanguage(
             "Che bella giornata!",
             "Ciao bella!",
             "Molto bene"
-        )
+        ),
+        flagRes = R.drawable.ic_flag_it,
+        joke = "Chi dorme non piglia pesci... ma almeno non si bagna."
     ),
     GERMAN(
         code = "DE",
@@ -41,7 +47,9 @@ enum class AppLanguage(
             "Das ist wunderbar!",
             "Vielen Dank!",
             "Schönen Tag noch!"
-        )
+        ),
+        flagRes = R.drawable.ic_flag_de,
+        joke = "Was ist grün und klopft an die Tür? Ein Klopfsalat."
     ),
     GREEK(
         code = "EL",
@@ -57,7 +65,9 @@ enum class AppLanguage(
             "Τα λέμε!",
             "Γεια σου!",
             "Όμορφη μέρα!"
-        )
+        ),
+        flagRes = R.drawable.ic_flag_el,
+        joke = "Η καλή μέρα από το πρωί φαίνεται... αλλά το καλό μεσημεράκι θέλει ύπνο."
     );
 
     companion object {

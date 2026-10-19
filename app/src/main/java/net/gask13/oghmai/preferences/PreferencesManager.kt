@@ -89,20 +89,26 @@ class PreferencesManager(context: Context) {
         setAppLanguage(appLanguage)
     }
 
-    fun getTtsSpeechRate(): Float {
-        return sharedPreferences.getFloat(KEY_TTS_SPEECH_RATE, DEFAULT_TTS_SPEECH_RATE)
+    fun getTtsSpeechRate(languageCode: String = getAppLanguage().code): Float {
+        return sharedPreferences.getFloat(
+            "${KEY_TTS_SPEECH_RATE}_${languageCode.lowercase()}",
+            sharedPreferences.getFloat(KEY_TTS_SPEECH_RATE, DEFAULT_TTS_SPEECH_RATE)
+        )
     }
 
-    fun setTtsSpeechRate(rate: Float) {
-        sharedPreferences.edit().putFloat(KEY_TTS_SPEECH_RATE, rate).apply()
+    fun setTtsSpeechRate(rate: Float, languageCode: String = getAppLanguage().code) {
+        sharedPreferences.edit().putFloat("${KEY_TTS_SPEECH_RATE}_${languageCode.lowercase()}", rate).apply()
     }
 
-    fun getTtsPitch(): Float {
-        return sharedPreferences.getFloat(KEY_TTS_PITCH, DEFAULT_TTS_PITCH)
+    fun getTtsPitch(languageCode: String = getAppLanguage().code): Float {
+        return sharedPreferences.getFloat(
+            "${KEY_TTS_PITCH}_${languageCode.lowercase()}",
+            sharedPreferences.getFloat(KEY_TTS_PITCH, DEFAULT_TTS_PITCH)
+        )
     }
 
-    fun setTtsPitch(pitch: Float) {
-        sharedPreferences.edit().putFloat(KEY_TTS_PITCH, pitch).apply()
+    fun setTtsPitch(pitch: Float, languageCode: String = getAppLanguage().code) {
+        sharedPreferences.edit().putFloat("${KEY_TTS_PITCH}_${languageCode.lowercase()}", pitch).apply()
     }
 
     fun getTtsVoice(languageCode: String = getAppLanguage().code): String {

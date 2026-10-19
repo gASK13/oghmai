@@ -45,8 +45,8 @@ class TextToSpeechWrapper {
 
         preferencesManager?.let { prefs ->
             val lang = appLanguage ?: prefs.getAppLanguage()
-            val speechRate = prefs.getTtsSpeechRate()
-            val pitch = prefs.getTtsPitch()
+            val speechRate = prefs.getTtsSpeechRate(lang.code)
+            val pitch = prefs.getTtsPitch(lang.code)
             val voiceName = prefs.getTtsVoice(lang.code)
 
             textToSpeech.setSpeechRate(speechRate)
