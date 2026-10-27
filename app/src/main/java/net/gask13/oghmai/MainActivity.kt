@@ -45,6 +45,7 @@ import net.gask13.oghmai.notifications.NotificationScheduler
 import net.gask13.oghmai.preferences.PreferencesManager
 import net.gask13.oghmai.services.TextToSpeechWrapper
 import net.gask13.oghmai.ui.*
+import net.gask13.oghmai.ui.components.LanguageFlagRow
 import net.gask13.oghmai.ui.components.MenuButton
 import net.gask13.oghmai.ui.components.OptionMenuItem
 import net.gask13.oghmai.ui.components.ScaffoldWithTopBar
@@ -180,7 +181,13 @@ fun LoadingScreen() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainMenuScreen(onNavigate: (String) -> Unit) {
+fun MainMenuScreen(
+    preferencesManager: PreferencesManager,
+    textToSpeech: TextToSpeechWrapper,
+    onNavigate: (String) -> Unit
+) {
+    var selectedLanguage by remember { mutableStateOf(preferencesManager.getAppLanguage()) }
+
     ScaffoldWithTopBar(
         title = "OghmAI",
         isMainScreen = true,
@@ -204,6 +211,14 @@ fun MainMenuScreen(onNavigate: (String) -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
+            LanguageFlagRow(
+                selected = selectedLanguage,
+                onSelect = { lang ->
+                    selectedLanguage = lang
+                    preferencesManager.setAppLanguage(lang)
+                    textToSpeech.setLanguage(lang)
+                }
+            )
             MenuButton(
                 icon = { Icon(Icons.Default.Search, contentDescription = "") },
                 name = "Describe Word",
@@ -297,7 +312,9 @@ fun OghmAINavHost(
                 }
             }
 
-            MainMenuScreen { destination ->
+            val context = LocalContext.current
+            val preferencesManager = remember { PreferencesManager.getInstance(context) }
+            MainMenuScreen(preferencesManager, textToSpeech) { destination ->
                 navController.navigate(destination) {
                     // Clear the back stack when navigating to the main menu
                     Log.d("Navigation", "Navigating to $destination")

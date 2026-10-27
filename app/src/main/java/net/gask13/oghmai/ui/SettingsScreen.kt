@@ -27,7 +27,6 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import net.gask13.oghmai.auth.AuthManager
-import net.gask13.oghmai.model.AppLanguage
 import net.gask13.oghmai.notifications.NotificationHelper
 import net.gask13.oghmai.notifications.NotificationScheduler
 import net.gask13.oghmai.preferences.PreferencesManager
@@ -49,16 +48,15 @@ fun SettingsScreen(
     var isLoggingOut by remember { mutableStateOf(false) }
 
     val preferencesManager = remember { PreferencesManager.getInstance(context) }
-    var selectedLanguage by remember { mutableStateOf(preferencesManager.getAppLanguage()) }
-    var showLanguageDropdown by remember { mutableStateOf(false) }
+    val selectedLanguage = remember { preferencesManager.getAppLanguage() }
 
     var notificationsEnabled by remember { mutableStateOf(preferencesManager.isNotificationsEnabled()) }
     val notificationHour = remember { mutableStateOf(preferencesManager.getNotificationHour()) }
     val notificationMinute = remember { mutableStateOf(preferencesManager.getNotificationMinute()) }
 
     // Voice settings
-    var speechRate by remember { mutableStateOf(preferencesManager.getTtsSpeechRate()) }
-    var pitch by remember { mutableStateOf(preferencesManager.getTtsPitch()) }
+    var speechRate by remember { mutableStateOf(preferencesManager.getTtsSpeechRate(selectedLanguage.code)) }
+    var pitch by remember { mutableStateOf(preferencesManager.getTtsPitch(selectedLanguage.code)) }
     var selectedVoiceName by remember { mutableStateOf(preferencesManager.getTtsVoice(selectedLanguage.code)) }
     var availableVoices by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var showVoiceDropdown by remember { mutableStateOf(false) }
@@ -70,7 +68,6 @@ fun SettingsScreen(
 
     // Expandable section states
     var accountExpanded by remember { mutableStateOf(false) }
-    var languageExpanded by remember { mutableStateOf(false) }
     var notificationsExpanded by remember { mutableStateOf(false) }
     var voiceExpanded by remember { mutableStateOf(false) }
 
@@ -91,15 +88,6 @@ fun SettingsScreen(
                 ttsWrapper.shutdown()
             }
         }
-    }
-
-    fun onLanguageSelected(lang: AppLanguage) {
-        selectedLanguage = lang
-        preferencesManager.setAppLanguage(lang)
-        ttsWrapper.setLanguage(lang)
-        availableVoices = ttsWrapper.getAvailableVoices(lang)
-        selectedVoiceName = preferencesManager.getTtsVoice(lang.code)
-        showLanguageDropdown = false
     }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -155,60 +143,6 @@ fun SettingsScreen(
                         text = username,
                         style = MaterialTheme.typography.bodyLarge
                     )
-                }
-            }
-
-            // Language Section
-            ExpandableSection(
-                title = "Language",
-                expanded = languageExpanded,
-                onToggle = { languageExpanded = !languageExpanded }
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Learning Language",
-                        style = MaterialTheme.typography.titleSmall
-                    )
-                    Text(
-                        text = "Choose the language you are currently learning",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    ExposedDropdownMenuBox(
-                        expanded = showLanguageDropdown,
-                        onExpandedChange = { showLanguageDropdown = it }
-                    ) {
-                        OutlinedTextField(
-                            value = "${selectedLanguage.displayName} (${selectedLanguage.code})",
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Selected Language") },
-                            trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = showLanguageDropdown)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(),
-                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
-                        )
-
-                        ExposedDropdownMenu(
-                            expanded = showLanguageDropdown,
-                            onDismissRequest = { showLanguageDropdown = false }
-                        ) {
-                            AppLanguage.entries.forEach { lang ->
-                                DropdownMenuItem(
-                                    text = { Text("${lang.displayName} (${lang.code})") },
-                                    onClick = { onLanguageSelected(lang) },
-                                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
-                                )
-                            }
-                        }
-                    }
                 }
             }
 
@@ -299,7 +233,7 @@ fun SettingsScreen(
 
             // Voice Section
             ExpandableSection(
-                title = "Voice",
+                title = "Voice (${selectedLanguage.displayName})",
                 expanded = voiceExpanded,
                 onToggle = { voiceExpanded = !voiceExpanded }
             ) {
@@ -406,7 +340,7 @@ fun SettingsScreen(
                                 speechRate = newRate
                             },
                             onValueChangeFinished = {
-                                preferencesManager.setTtsSpeechRate(speechRate)
+                                preferencesManager.setTtsSpeechRate(speechRate, selectedLanguage.code)
                                 ttsWrapper.setSpeechRate(speechRate)
                             },
                             valueRange = 0.5f..2.0f,
@@ -449,7 +383,7 @@ fun SettingsScreen(
                                 pitch = newPitch
                             },
                             onValueChangeFinished = {
-                                preferencesManager.setTtsPitch(pitch)
+                                preferencesManager.setTtsPitch(pitch, selectedLanguage.code)
                                 ttsWrapper.setPitch(pitch)
                             },
                             valueRange = 0.5f..2.0f,
